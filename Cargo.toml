@@ -1,0 +1,51 @@
+[package]
+name = "browser39"
+version = "1.0.0"
+edition = "2024"
+description = "A headless web browser for AI agents. Single binary, no external browser required."
+license = "Apache-2.0"
+repository = "https://github.com/alejandroqh/browser39"
+homepage = "https://github.com/alejandroqh/browser39"
+readme = "README.md"
+keywords = ["browser", "ai", "mcp", "headless", "markdown"]
+categories = ["command-line-utilities", "web-programming"]
+
+[[bin]]
+name = "browser39"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "cookies"] }
+cookie_store = "0.22"
+cookie = "0.18"
+url = "2"
+bytes = "1"
+time = "0.3"
+tokio = { version = "1", features = ["full"] }
+thiserror = "2"
+anyhow = "1"
+dirs = "6"
+ego-tree = "0.11"
+scraper = "0.26"
+encoding_rs = "0.8"
+clap = { version = "4", features = ["derive"] }
+rand = "0.9"
+regex = "1"
+notify = "7"
+boa_engine = "0.20"
+form_urlencoded = "1"
+rmcp = { version = "1", features = ["server", "transport-io", "transport-streamable-http-server", "macros"] }
+schemars = "1"
+hyper = { version = "1", features = ["server", "http1", "http2"] }
+hyper-util = { version = "0.1", features = ["tokio", "server-auto", "http1", "http2"] }
+http-body-util = "0.1"
+tokio-util = "0.7"
+tower-service = "0.3"
+aes-gcm = "0.10"
+base64 = "0.22"
+
+[dev-dependencies]
+tempfile = "3"

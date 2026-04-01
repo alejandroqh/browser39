@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "browser39": {
+      "type": "stdio",
+      "command": "/Users/aquintanar/Development/browser39/target/debug/browser39",
+      "args": ["mcp"]
+    }
+  }
+}

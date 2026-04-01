@@ -1,0 +1,4 @@
+{"id":"cfg","action":"config","v":1,"seq":0,"step_delay":[1,2]}
+{"id":"1","action":"fetch","v":1,"seq":1,"url":"https://www.fastline.com.ec","options":{"max_tokens":2000}}
+{"id":"2","action":"fetch","v":1,"seq":2,"text":"carga","options":{"max_tokens":2000}}
+{"id":"3","action":"back","v":1,"seq":3}

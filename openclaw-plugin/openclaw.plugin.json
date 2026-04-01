@@ -1,0 +1,55 @@
+{
+  "id": "browser39",
+  "name": "browser39",
+  "description": "Headless web browser for AI agents. Fetches pages as token-optimized markdown with JS support, forms, cookies, storage, and web search.",
+  "version": "1.0.0",
+  "contracts": {
+    "tools": [
+      "browser39_fetch",
+      "browser39_click",
+      "browser39_links",
+      "browser39_dom_query",
+      "browser39_fill",
+      "browser39_submit",
+      "browser39_cookies",
+      "browser39_set_cookie",
+      "browser39_delete_cookie",
+      "browser39_storage_get",
+      "browser39_storage_set",
+      "browser39_storage_delete",
+      "browser39_storage_list",
+      "browser39_storage_clear",
+      "browser39_search",
+      "browser39_back",
+      "browser39_forward",
+      "browser39_history",
+      "browser39_info"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "binaryPath": {
+        "type": "string",
+        "description": "Path to the browser39 binary. Defaults to 'browser39' (must be in PATH)."
+      },
+      "configPath": {
+        "type": "string",
+        "description": "Path to browser39 config.toml file."
+      }
+    }
+  },
+  "uiHints": {
+    "binaryPath": {
+      "label": "Binary path",
+      "placeholder": "browser39",
+      "help": "Absolute path to the browser39 binary, or leave empty to use PATH"
+    },
+    "configPath": {
+      "label": "Config file",
+      "placeholder": "~/.config/browser39/config.toml",
+      "help": "Path to browser39 configuration file"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# Build output
+/dist/
+
+# Tests (private, not open source)
+tests/
+
+# Claude
+CLAUDE.md

@@ -1,0 +1,11 @@
+{
+  "name": "@browser39/openclaw-browser39",
+  "version": "1.0.0",
+  "description": "OpenClaw native plugin for browser39 — headless web browser for AI agents",
+  "type": "module",
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  },
+  "keywords": ["openclaw", "plugin", "browser", "headless", "markdown", "ai-agent"],
+  "license": "MIT"
+}
