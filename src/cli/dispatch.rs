@@ -1,6 +1,5 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::time::Duration;
 
@@ -562,7 +561,7 @@ impl<'a> ResultWriter<'a> {
             Ok(m) => m,
             Err(_) => return Ok(()),
         };
-        if meta.size() < ROTATION_SIZE {
+        if meta.len() < ROTATION_SIZE {
             return Ok(());
         }
 

@@ -4,7 +4,7 @@
 
 # browser39
 
-A headless web browser for AI agents. Single binary, no external browser required.
+A headless web browser for AI agents. Converts pages to token-optimized Markdown locally. Single binary, no external browser.
 
 browser39 fetches web pages and converts them to token-optimized Markdown that LLMs can actually consume. It runs JavaScript, manages cookies and sessions, queries the DOM, and fills forms. All processing happens locally, no data is sent to third-party services.
 

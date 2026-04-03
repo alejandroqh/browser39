@@ -2,7 +2,7 @@
 name = "browser39"
 version = "1.0.0"
 edition = "2024"
-description = "A headless web browser for AI agents. Single binary, no external browser required."
+description = "A headless web browser for AI agents. Converts pages to token-optimized Markdown locally. Single binary, no external browser."
 license = "Apache-2.0"
 repository = "https://github.com/alejandroqh/browser39"
 homepage = "https://github.com/alejandroqh/browser39"
