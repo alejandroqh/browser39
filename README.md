@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/alejandroqh/browser39/main/docs/logo.png" alt="browser39" width="200">
+  <img src="https://raw.githubusercontent.com/alejandroqh/browser39/main/docs/logo.png" alt="browser39" width="400">
 </p>
 
 # browser39
