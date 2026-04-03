@@ -15,11 +15,9 @@ Cargo.lock
 # Build output
 /dist/
 
-# Tests (private, not open source)
+# Tests
 tests/
 
 # Claude
 CLAUDE.md
-test_batch.jsonl
-test_results.jsonl
 build.sh
