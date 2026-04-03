@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/alejandroqh/browser39/main/docs/logo.png" alt="browser39" width="200">
+</p>
+
 # browser39
 
 A headless web browser for AI agents. Single binary, no external browser required.
