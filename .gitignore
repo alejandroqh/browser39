@@ -20,3 +20,6 @@ tests/
 
 # Claude
 CLAUDE.md
+test_batch.jsonl
+test_results.jsonl
+build.sh
