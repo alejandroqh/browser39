@@ -196,3 +196,113 @@ pub struct SearchParams {
     /// Maximum tokens to return
     pub max_tokens: Option<u64>,
 }
+
+// ─── Config Management ─────────────────────────────────────────────
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ConfigShowParams {
+    /// Config section to show. Options: session, search, auth, cookies, storage, headers, security.
+    /// If omitted, shows all sections.
+    pub section: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ConfigSetParams {
+    /// Setting key in dot notation. Allowed keys:
+    /// session.start_url, session.user_agent, session.timeout_secs, session.max_redirects,
+    /// session.persistence, session.defaults.max_tokens, session.defaults.strip_nav,
+    /// session.defaults.include_links, session.defaults.include_images, search.engine
+    pub key: String,
+    /// New value (as string; parsed to the appropriate type)
+    pub value: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ConfigAuthSetParams {
+    /// Auth profile name (e.g., "github", "internal")
+    pub name: String,
+    /// HTTP header name (e.g., "Authorization", "X-API-Key")
+    pub header: String,
+    /// Credential value (stored securely, NEVER returned via MCP)
+    pub value: Option<String>,
+    /// Environment variable name containing the credential
+    pub value_env: Option<String>,
+    /// Prefix prepended to the value (e.g., "Bearer ")
+    pub value_prefix: Option<String>,
+    /// Domains this profile applies to (e.g., ["api.github.com", "*.github.com"])
+    pub domains: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ConfigAuthDeleteParams {
+    /// Auth profile name to delete
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ConfigCookieSetParams {
+    /// Cookie name
+    pub name: String,
+    /// Cookie value (stored, masked if sensitive)
+    pub value: Option<String>,
+    /// Environment variable containing the cookie value
+    pub value_env: Option<String>,
+    /// Cookie domain
+    pub domain: String,
+    /// Cookie path (defaults to "/")
+    pub path: Option<String>,
+    /// Whether the cookie requires HTTPS
+    #[serde(default)]
+    pub secure: bool,
+    /// Whether the cookie is HTTP-only
+    #[serde(default)]
+    pub http_only: bool,
+    /// Whether the cookie value is sensitive (will be masked in config_show)
+    #[serde(default)]
+    pub sensitive: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ConfigCookieDeleteParams {
+    /// Cookie name
+    pub name: String,
+    /// Cookie domain
+    pub domain: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ConfigStorageSetParams {
+    /// Origin (e.g., "https://app.example.com")
+    pub origin: String,
+    /// Storage key
+    pub key: String,
+    /// Storage value (stored, masked if sensitive)
+    pub value: Option<String>,
+    /// Environment variable containing the value
+    pub value_env: Option<String>,
+    /// Whether the value is sensitive (will be masked in config_show)
+    #[serde(default)]
+    pub sensitive: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ConfigStorageDeleteParams {
+    /// Origin (e.g., "https://app.example.com")
+    pub origin: String,
+    /// Storage key
+    pub key: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ConfigHeaderSetParams {
+    /// Domains this header rule applies to (e.g., ["api.example.com", "*.api.example.com"])
+    pub domains: Vec<String>,
+    /// Header key-value pairs to set
+    pub values: HashMap<String, String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ConfigHeaderDeleteParams {
+    /// Domains of the header rule to delete (must match the rule's domain list exactly)
+    pub domains: Vec<String>,
+}

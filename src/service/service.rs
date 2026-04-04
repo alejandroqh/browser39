@@ -89,6 +89,7 @@ pub struct BrowserService {
     started_at: Instant,
     secrets: SecretStore,
     redaction: RedactionEngine,
+    transport: Transport,
     store: Box<dyn SessionStore>,
 }
 
@@ -196,6 +197,7 @@ impl BrowserService {
             started_at: Instant::now(),
             secrets,
             redaction,
+            transport,
             store,
         };
 
@@ -255,6 +257,62 @@ impl BrowserService {
     pub fn search_url(&self, query: &str) -> String {
         let encoded: String = url::form_urlencoded::byte_serialize(query.as_bytes()).collect();
         self.config.search.engine.replacen("{}", &encoded, 1)
+    }
+
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
+    /// Reload config after a change. Updates in-memory config, re-resolves env vars,
+    /// rebuilds redaction engine, updates header rules, and preloads cookies/storage/auth secrets.
+    pub fn reload_config(&mut self, mut config: Config) -> Result<()> {
+        config.resolve()?;
+
+        self.redaction = RedactionEngine::new(&config.security, self.transport);
+        self.http.set_header_rules(config.headers.clone());
+
+        // Preload cookies into cookie jar
+        for cookie_cfg in &config.cookies {
+            if let Some(ref val) = cookie_cfg.resolved_value {
+                self.http.jar().set_cookie(
+                    &cookie_cfg.name,
+                    val,
+                    &cookie_cfg.domain,
+                    &cookie_cfg.path,
+                    cookie_cfg.secure,
+                    cookie_cfg.http_only,
+                    None,
+                )?;
+                if cookie_cfg.sensitive {
+                    self.secrets.store(val);
+                }
+            }
+        }
+
+        // Preload new storage entries
+        for entry in &config.storage {
+            if let Some(ref val) = entry.resolved_value {
+                let stored_val = if entry.sensitive {
+                    self.secrets.store(val)
+                } else {
+                    val.clone()
+                };
+                self.storage
+                    .entry(entry.origin.clone())
+                    .or_default()
+                    .insert(entry.key.clone(), stored_val);
+            }
+        }
+
+        // Pre-store sensitive auth values as secrets
+        for profile in config.auth.values() {
+            if let Some(ref val) = profile.resolved_value {
+                self.secrets.store(val);
+            }
+        }
+
+        self.config = config;
+        Ok(())
     }
 
     pub fn default_fetch_options(&self) -> FetchOptions {

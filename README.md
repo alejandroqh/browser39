@@ -80,7 +80,7 @@ Add to your MCP settings:
 }
 ```
 
-19 tools available instantly: `browser39_fetch`, `browser39_click`, `browser39_links`, `browser39_dom_query`, `browser39_fill`, `browser39_submit`, `browser39_search`, cookies, storage, history, and more.
+29 tools available instantly: `browser39_fetch`, `browser39_click`, `browser39_links`, `browser39_dom_query`, `browser39_fill`, `browser39_submit`, `browser39_search`, cookies, storage, history, config management, and more.
 
 See [docs/install-claude.md](docs/install-claude.md) for the full guide.
 
@@ -180,6 +180,23 @@ domains = ["api.github.com"]
 ```json
 {"action": "fetch", "url": "https://api.github.com/repos", "auth_profile": "github"}
 ```
+
+### Config management via MCP
+
+Agents can manage browser39's configuration directly through MCP tools — change the search engine, store credentials, manage auth profiles, cookies, storage, and headers. Sensitive values are stored securely on disk but **never returned** via MCP; `config_show` masks them with `••••••`.
+
+```
+> browser39_config_set key="search.engine" value="https://www.google.com/search?q={}"
+Set search.engine = https://www.google.com/search?q={}
+
+> browser39_config_auth_set name="github" header="Authorization" value="Bearer ghp_..." domains=["api.github.com"]
+Auth profile 'github' saved
+
+> browser39_config_show section="auth"
+{"auth": {"github": {"header": "Authorization", "value": "••••••", ...}}}
+```
+
+10 config tools: `config_show`, `config_set`, `config_auth_set/delete`, `config_cookie_set/delete`, `config_storage_set/delete`, `config_header_set/delete`.
 
 ### All transports
 

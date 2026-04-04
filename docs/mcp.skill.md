@@ -47,6 +47,23 @@ You have access to browser39, a headless web browser that fetches pages and retu
 | `browser39_storage_list` | List localStorage entries for an origin |
 | `browser39_storage_clear` | Clear localStorage for an origin |
 
+### Configuration
+
+Manage the browser39 config file (`~/.config/browser39/config.toml`) via MCP. Sensitive values (credentials, tokens) are stored securely and **never returned** — only masked with `••••••` in `config_show`.
+
+| Tool | Description |
+|------|-------------|
+| `browser39_config_show` | View config (all or by section) with sensitive values masked |
+| `browser39_config_set` | Set a scalar config value (search engine, timeouts, defaults) |
+| `browser39_config_auth_set` | Add/update an auth profile (credentials never returned) |
+| `browser39_config_auth_delete` | Delete an auth profile |
+| `browser39_config_cookie_set` | Add/update a preloaded cookie |
+| `browser39_config_cookie_delete` | Delete a preloaded cookie |
+| `browser39_config_storage_set` | Add/update a preloaded storage entry |
+| `browser39_config_storage_delete` | Delete a preloaded storage entry |
+| `browser39_config_header_set` | Add/update default header rules for domains |
+| `browser39_config_header_delete` | Delete default header rules |
+
 ## MCP Resources
 
 | URI | Description | MIME |
@@ -167,6 +184,102 @@ Returns `{entries: [{index, url, title, status, current}], count, total}`.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `origin` | string | no | Origin (default: current page origin) |
+
+### browser39_config_show
+
+View the current configuration with sensitive values masked. The raw config file is never exposed.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `section` | string | no | Filter by section: `session`, `search`, `auth`, `cookies`, `storage`, `headers`, `security`. Omit to show all. |
+
+### browser39_config_set
+
+Set a scalar config value. Changes are saved to disk and take effect immediately (except `user_agent` and `max_redirects`, which require restart).
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `key` | string | yes | Setting key in dot notation (see below) |
+| `value` | string | yes | New value (parsed to appropriate type) |
+
+**Allowed keys:** `session.start_url`, `session.user_agent`, `session.timeout_secs`, `session.max_redirects`, `session.persistence`, `session.defaults.max_tokens`, `session.defaults.strip_nav`, `session.defaults.include_links`, `session.defaults.include_images`, `search.engine`
+
+Use `"null"` or `""` to clear optional fields (`start_url`, `max_tokens`).
+
+### browser39_config_auth_set
+
+Add or update an auth profile. Credential values are stored on disk but **never returned via MCP**.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | yes | Profile name (e.g., `"github"`) |
+| `header` | string | yes | HTTP header name (e.g., `"Authorization"`) |
+| `value` | string | one of | Credential value (stored securely) |
+| `value_env` | string | one of | Environment variable containing the credential |
+| `value_prefix` | string | no | Prefix prepended to the value (e.g., `"Bearer "`) |
+| `domains` | array | yes | Domains this profile applies to |
+
+### browser39_config_auth_delete
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | yes | Auth profile name to delete |
+
+### browser39_config_cookie_set
+
+Add or update a preloaded cookie in the config. Cookies marked `sensitive` are masked in `config_show`.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | yes | Cookie name |
+| `value` | string | one of | Cookie value |
+| `value_env` | string | one of | Environment variable containing the value |
+| `domain` | string | yes | Cookie domain |
+| `path` | string | no | Cookie path (default: `/`) |
+| `secure` | boolean | no | Require HTTPS (default: false) |
+| `http_only` | boolean | no | HTTP-only flag (default: false) |
+| `sensitive` | boolean | no | Mask value in `config_show` (default: false) |
+
+### browser39_config_cookie_delete
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | yes | Cookie name |
+| `domain` | string | yes | Cookie domain |
+
+### browser39_config_storage_set
+
+Add or update a preloaded storage entry. Entries marked `sensitive` are masked in `config_show`.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `origin` | string | yes | Origin (e.g., `https://app.example.com`) |
+| `key` | string | yes | Storage key |
+| `value` | string | one of | Storage value |
+| `value_env` | string | one of | Environment variable containing the value |
+| `sensitive` | boolean | no | Mask value in `config_show` (default: false) |
+
+### browser39_config_storage_delete
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `origin` | string | yes | Origin |
+| `key` | string | yes | Storage key |
+
+### browser39_config_header_set
+
+Add or update default header rules for matching domains.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `domains` | array | yes | Domain patterns (supports `*` wildcard) |
+| `values` | object | yes | Header key-value pairs |
+
+### browser39_config_header_delete
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `domains` | array | yes | Domain list of the rule to delete (must match exactly) |
 
 ## CLI
 

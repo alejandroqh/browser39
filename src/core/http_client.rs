@@ -248,6 +248,10 @@ impl HttpClient {
         &self.jar
     }
 
+    pub fn set_header_rules(&mut self, rules: Vec<HeaderRuleConfig>) {
+        self.header_rules = rules;
+    }
+
     pub async fn fetch(
         &self,
         url: &str,

@@ -19,6 +19,7 @@ pub enum ErrorCode {
     AuthProfileNotFound,
     AuthProfileDomainMismatch,
     SessionError,
+    ConfigError,
 }
 
 impl ErrorCode {
@@ -70,6 +71,7 @@ mod tests {
             ErrorCode::AuthProfileNotFound,
             ErrorCode::AuthProfileDomainMismatch,
             ErrorCode::SessionError,
+            ErrorCode::ConfigError,
         ];
         for code in &codes {
             let json = serde_json::to_string(code).unwrap();

@@ -1,10 +1,11 @@
 use anyhow::{bail, Context, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
     pub session: SessionConfig,
@@ -16,12 +17,18 @@ pub struct Config {
     pub security: SecurityConfig,
 }
 
+pub const MASK: &str = "••••••";
+
 impl Config {
-    pub fn load(path: Option<&Path>) -> Result<Config> {
-        let config_path = path
-            .map(PathBuf::from)
+    /// Resolve the config file path from explicit path, env var, or default.
+    pub fn config_path(path: Option<&Path>) -> PathBuf {
+        path.map(PathBuf::from)
             .or_else(|| std::env::var("BROWSER39_CONFIG").ok().map(PathBuf::from))
-            .unwrap_or_else(default_config_path);
+            .unwrap_or_else(default_config_path)
+    }
+
+    pub fn load(path: Option<&Path>) -> Result<Config> {
+        let config_path = Self::config_path(path);
 
         let contents = match std::fs::read_to_string(&config_path) {
             Ok(c) => c,
@@ -37,7 +44,119 @@ impl Config {
         Ok(config)
     }
 
-    fn resolve(&mut self) -> Result<()> {
+    /// Write this config to disk (atomic write with fsync + chmod 600).
+    pub fn save(&self, path: Option<&Path>) -> Result<()> {
+        let config_path = Self::config_path(path);
+        let toml_str = toml::to_string_pretty(self)
+            .context("serializing config to TOML")?;
+        super::persistence::atomic_write(&config_path, toml_str.as_bytes())
+    }
+
+    /// Build a JSON representation of the config with sensitive values masked.
+    /// If `section` is Some, return only that top-level key.
+    pub fn masked_json(&self, section: Option<&str>) -> serde_json::Value {
+        let mut root = serde_json::Map::new();
+
+        if section.is_none() || section == Some("session") {
+            root.insert("session".into(), json!({
+                "start_url": self.session.start_url,
+                "user_agent": self.session.user_agent,
+                "timeout_secs": self.session.timeout_secs,
+                "max_redirects": self.session.max_redirects,
+                "persistence": serde_json::to_value(&self.session.persistence).unwrap_or_default(),
+                "session_path": self.session.session_path,
+                "defaults": {
+                    "max_tokens": self.session.defaults.max_tokens,
+                    "strip_nav": self.session.defaults.strip_nav,
+                    "include_links": self.session.defaults.include_links,
+                    "include_images": self.session.defaults.include_images,
+                }
+            }));
+        }
+
+        if section.is_none() || section == Some("search") {
+            root.insert("search".into(), json!({
+                "engine": self.search.engine,
+            }));
+        }
+
+        if section.is_none() || section == Some("auth") {
+            let mut auth_map = serde_json::Map::new();
+            for (name, profile) in &self.auth {
+                auth_map.insert(name.clone(), json!({
+                    "header": profile.header,
+                    "value": MASK,
+                    "value_env": profile.value_env,
+                    "value_prefix": profile.value_prefix,
+                    "domains": profile.domains,
+                }));
+            }
+            root.insert("auth".into(), serde_json::Value::Object(auth_map));
+        }
+
+        if section.is_none() || section == Some("cookies") {
+            let cookies: Vec<serde_json::Value> = self.cookies.iter().map(|c| {
+                let value = if c.sensitive {
+                    json!(MASK)
+                } else {
+                    json!(c.value)
+                };
+                json!({
+                    "name": c.name,
+                    "value": value,
+                    "value_env": c.value_env,
+                    "domain": c.domain,
+                    "path": c.path,
+                    "secure": c.secure,
+                    "http_only": c.http_only,
+                    "sensitive": c.sensitive,
+                })
+            }).collect();
+            root.insert("cookies".into(), json!(cookies));
+        }
+
+        if section.is_none() || section == Some("storage") {
+            let storage: Vec<serde_json::Value> = self.storage.iter().map(|s| {
+                let value = if s.sensitive {
+                    json!(MASK)
+                } else {
+                    json!(s.value)
+                };
+                json!({
+                    "origin": s.origin,
+                    "key": s.key,
+                    "value": value,
+                    "value_env": s.value_env,
+                    "sensitive": s.sensitive,
+                })
+            }).collect();
+            root.insert("storage".into(), json!(storage));
+        }
+
+        if section.is_none() || section == Some("headers") {
+            let headers: Vec<serde_json::Value> = self.headers.iter().map(|h| {
+                json!({
+                    "domains": h.domains,
+                    "values": h.values,
+                })
+            }).collect();
+            root.insert("headers".into(), json!(headers));
+        }
+
+        if section.is_none() || section == Some("security") {
+            root.insert("security".into(), json!({
+                "sensitive_cookies": self.security.sensitive_cookies,
+                "sensitive_headers": self.security.sensitive_headers,
+                "patterns": self.security.patterns.keys().collect::<Vec<_>>(),
+                "mcp": { "redact": self.security.mcp.redact },
+                "jsonl": { "redact": self.security.jsonl.redact },
+            }));
+        }
+
+        serde_json::Value::Object(root)
+    }
+
+    pub fn resolve(&mut self) -> Result<()> {
         for (name, profile) in &mut self.auth {
             let mut val = resolve_value(&profile.value, &profile.value_env)
                 .with_context(|| format!("auth profile '{name}'"))?;
@@ -79,7 +198,7 @@ fn resolve_value(value: &Option<String>, value_env: &Option<String>) -> Result<S
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum PersistenceMode {
     #[default]
@@ -87,7 +206,7 @@ pub enum PersistenceMode {
     Memory,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SessionConfig {
     pub start_url: Option<String>,
@@ -113,7 +232,7 @@ impl Default for SessionConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SessionDefaults {
     pub max_tokens: Option<u64>,
@@ -133,7 +252,7 @@ impl Default for SessionDefaults {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SearchConfig {
     /// Search engine URL template. Use `{}` as the query placeholder.
@@ -152,7 +271,7 @@ impl Default for SearchConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthProfileConfig {
     pub header: String,
     pub value: Option<String>,
@@ -167,7 +286,7 @@ fn default_slash() -> String {
     "/".into()
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CookieConfig {
     pub name: String,
     pub value: Option<String>,
@@ -185,7 +304,7 @@ pub struct CookieConfig {
     pub resolved_value: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageConfig {
     pub origin: String,
     pub key: String,
@@ -197,13 +316,13 @@ pub struct StorageConfig {
     pub resolved_value: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HeaderRuleConfig {
     pub domains: Vec<String>,
     pub values: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SecurityConfig {
     pub sensitive_cookies: Vec<String>,
@@ -237,7 +356,7 @@ impl Default for SecurityConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransportSecurity {
     pub redact: bool,
 }

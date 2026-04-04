@@ -168,6 +168,88 @@ impl McpServer {
             .map_err(|e| e.to_string())?;
         to_json(&result)
     }
+
+    // ─── Config Management Tools ───────────────────────────────────
+
+    #[tool(description = "View browser39 configuration with sensitive values masked. Never shows raw config file. Use section to filter: session, search, auth, cookies, storage, headers, security.")]
+    async fn browser39_config_show(
+        &self,
+        Parameters(params): Parameters<ConfigShowParams>,
+    ) -> Result<String, String> {
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigShow { params, tx }).await
+    }
+
+    #[tool(description = "Set a browser39 config value. Keys: session.start_url, session.user_agent, session.timeout_secs, session.max_redirects, session.persistence, session.defaults.max_tokens, session.defaults.strip_nav, session.defaults.include_links, session.defaults.include_images, search.engine")]
+    async fn browser39_config_set(
+        &self,
+        Parameters(params): Parameters<ConfigSetParams>,
+    ) -> Result<String, String> {
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigSet { params, tx }).await
+    }
+
+    #[tool(description = "Add or update an auth profile in the config. Credential values are stored securely and NEVER returned via MCP.")]
+    async fn browser39_config_auth_set(
+        &self,
+        Parameters(params): Parameters<ConfigAuthSetParams>,
+    ) -> Result<String, String> {
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigAuthSet { params, tx }).await
+    }
+
+    #[tool(description = "Delete an auth profile from the config")]
+    async fn browser39_config_auth_delete(
+        &self,
+        Parameters(params): Parameters<ConfigAuthDeleteParams>,
+    ) -> Result<String, String> {
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigAuthDelete { params, tx }).await
+    }
+
+    #[tool(description = "Add or update a preloaded cookie in the config. Sensitive cookies are masked in config_show.")]
+    async fn browser39_config_cookie_set(
+        &self,
+        Parameters(params): Parameters<ConfigCookieSetParams>,
+    ) -> Result<String, String> {
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigCookieSet { params, tx }).await
+    }
+
+    #[tool(description = "Delete a preloaded cookie from the config")]
+    async fn browser39_config_cookie_delete(
+        &self,
+        Parameters(params): Parameters<ConfigCookieDeleteParams>,
+    ) -> Result<String, String> {
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigCookieDelete { params, tx }).await
+    }
+
+    #[tool(description = "Add or update a preloaded storage entry in the config. Sensitive entries are masked in config_show.")]
+    async fn browser39_config_storage_set(
+        &self,
+        Parameters(params): Parameters<ConfigStorageSetParams>,
+    ) -> Result<String, String> {
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigStorageSet { params, tx }).await
+    }
+
+    #[tool(description = "Delete a preloaded storage entry from the config")]
+    async fn browser39_config_storage_delete(
+        &self,
+        Parameters(params): Parameters<ConfigStorageDeleteParams>,
+    ) -> Result<String, String> {
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigStorageDelete { params, tx }).await
+    }
+
+    #[tool(description = "Add or update default header rules for domains in the config")]
+    async fn browser39_config_header_set(
+        &self,
+        Parameters(params): Parameters<ConfigHeaderSetParams>,
+    ) -> Result<String, String> {
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigHeaderSet { params, tx }).await
+    }
+
+    #[tool(description = "Delete default header rules for domains from the config")]
+    async fn browser39_config_header_delete(
+        &self,
+        Parameters(params): Parameters<ConfigHeaderDeleteParams>,
+    ) -> Result<String, String> {
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigHeaderDelete { params, tx }).await
+    }
 }
 
 /// Helper for tools that return a page (fetch, click, back, forward, submit).

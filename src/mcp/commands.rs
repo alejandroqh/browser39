@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::core::config::Config;
+use crate::core::config::{
+    AuthProfileConfig, Config, CookieConfig, HeaderRuleConfig, PersistenceMode, StorageConfig,
+};
 use crate::core::page::*;
 use crate::core::redaction::Transport;
 use crate::service::service::BrowserService;
@@ -90,7 +92,65 @@ pub enum McpCommand {
     GetPageMeta {
         tx: oneshot::Sender<Result<PageMetadata>>,
     },
+    // Config management
+    ConfigShow {
+        params: ConfigShowParams,
+        tx: oneshot::Sender<Result<serde_json::Value>>,
+    },
+    ConfigSet {
+        params: ConfigSetParams,
+        tx: oneshot::Sender<Result<String>>,
+    },
+    ConfigAuthSet {
+        params: ConfigAuthSetParams,
+        tx: oneshot::Sender<Result<String>>,
+    },
+    ConfigAuthDelete {
+        params: ConfigAuthDeleteParams,
+        tx: oneshot::Sender<Result<String>>,
+    },
+    ConfigCookieSet {
+        params: ConfigCookieSetParams,
+        tx: oneshot::Sender<Result<String>>,
+    },
+    ConfigCookieDelete {
+        params: ConfigCookieDeleteParams,
+        tx: oneshot::Sender<Result<String>>,
+    },
+    ConfigStorageSet {
+        params: ConfigStorageSetParams,
+        tx: oneshot::Sender<Result<String>>,
+    },
+    ConfigStorageDelete {
+        params: ConfigStorageDeleteParams,
+        tx: oneshot::Sender<Result<String>>,
+    },
+    ConfigHeaderSet {
+        params: ConfigHeaderSetParams,
+        tx: oneshot::Sender<Result<String>>,
+    },
+    ConfigHeaderDelete {
+        params: ConfigHeaderDeleteParams,
+        tx: oneshot::Sender<Result<String>>,
+    },
 }
+
+const CONFIG_SECTIONS: &[&str] = &[
+    "session", "search", "auth", "cookies", "storage", "headers", "security",
+];
+
+const CONFIG_KEYS: &[&str] = &[
+    "session.start_url",
+    "session.user_agent",
+    "session.timeout_secs",
+    "session.max_redirects",
+    "session.persistence",
+    "session.defaults.max_tokens",
+    "session.defaults.strip_nav",
+    "session.defaults.include_links",
+    "session.defaults.include_images",
+    "search.engine",
+];
 
 struct BrowserServiceRunner {
     service: BrowserService,
@@ -208,6 +268,37 @@ impl BrowserServiceRunner {
                         .current_page_result()
                         .map(|p| p.meta.clone()),
                 );
+            }
+            // Config management
+            McpCommand::ConfigShow { params, tx } => {
+                let _ = tx.send(self.dispatch_config_show(params));
+            }
+            McpCommand::ConfigSet { params, tx } => {
+                let _ = tx.send(self.dispatch_config_set(params));
+            }
+            McpCommand::ConfigAuthSet { params, tx } => {
+                let _ = tx.send(self.dispatch_config_auth_set(params));
+            }
+            McpCommand::ConfigAuthDelete { params, tx } => {
+                let _ = tx.send(self.dispatch_config_auth_delete(params));
+            }
+            McpCommand::ConfigCookieSet { params, tx } => {
+                let _ = tx.send(self.dispatch_config_cookie_set(params));
+            }
+            McpCommand::ConfigCookieDelete { params, tx } => {
+                let _ = tx.send(self.dispatch_config_cookie_delete(params));
+            }
+            McpCommand::ConfigStorageSet { params, tx } => {
+                let _ = tx.send(self.dispatch_config_storage_set(params));
+            }
+            McpCommand::ConfigStorageDelete { params, tx } => {
+                let _ = tx.send(self.dispatch_config_storage_delete(params));
+            }
+            McpCommand::ConfigHeaderSet { params, tx } => {
+                let _ = tx.send(self.dispatch_config_header_set(params));
+            }
+            McpCommand::ConfigHeaderDelete { params, tx } => {
+                let _ = tx.send(self.dispatch_config_header_delete(params));
             }
         }
     }
@@ -330,6 +421,199 @@ impl BrowserServiceRunner {
             opts.max_tokens = Some(mt);
         }
         self.service.submit(&params.selector, &opts).await
+    }
+
+    // ─── Config dispatch helpers ───────────────────────────────────
+
+    /// Load config from disk, apply a mutation, save, and reload into service.
+    fn mutate_config(&mut self, f: impl FnOnce(&mut Config) -> Result<String>) -> Result<String> {
+        let mut config = Config::load(None)?;
+        let msg = f(&mut config)?;
+        config.save(None)?;
+        self.service.reload_config(config)?;
+        Ok(msg)
+    }
+
+    fn dispatch_config_show(&self, params: ConfigShowParams) -> Result<serde_json::Value> {
+        let section = params.section.as_deref();
+        if let Some(s) = section {
+            if !CONFIG_SECTIONS.contains(&s) {
+                anyhow::bail!("unknown config section '{s}'. Valid: {}", CONFIG_SECTIONS.join(", "));
+            }
+        }
+        Ok(self.service.config().masked_json(section))
+    }
+
+    fn dispatch_config_set(&mut self, params: ConfigSetParams) -> Result<String> {
+        self.mutate_config(|config| {
+            match params.key.as_str() {
+                "session.start_url" => {
+                    config.session.start_url = if params.value == "null" || params.value.is_empty() {
+                        None
+                    } else {
+                        Some(params.value.clone())
+                    };
+                }
+                "session.user_agent" => {
+                    config.session.user_agent = params.value.clone();
+                }
+                "session.timeout_secs" => {
+                    config.session.timeout_secs = params.value.parse()
+                        .context("timeout_secs must be an integer")?;
+                }
+                "session.max_redirects" => {
+                    config.session.max_redirects = params.value.parse()
+                        .context("max_redirects must be an integer")?;
+                }
+                "session.persistence" => {
+                    config.session.persistence = match params.value.as_str() {
+                        "disk" => PersistenceMode::Disk,
+                        "memory" => PersistenceMode::Memory,
+                        _ => anyhow::bail!("persistence must be 'disk' or 'memory'"),
+                    };
+                }
+                "session.defaults.max_tokens" => {
+                    config.session.defaults.max_tokens = if params.value == "null" || params.value.is_empty() {
+                        None
+                    } else {
+                        Some(params.value.parse().context("max_tokens must be an integer")?)
+                    };
+                }
+                "session.defaults.strip_nav" => {
+                    config.session.defaults.strip_nav = params.value.parse()
+                        .context("strip_nav must be true or false")?;
+                }
+                "session.defaults.include_links" => {
+                    config.session.defaults.include_links = params.value.parse()
+                        .context("include_links must be true or false")?;
+                }
+                "session.defaults.include_images" => {
+                    config.session.defaults.include_images = params.value.parse()
+                        .context("include_images must be true or false")?;
+                }
+                "search.engine" => {
+                    config.search.engine = params.value.clone();
+                }
+                other => {
+                    anyhow::bail!(
+                        "unknown config key '{other}'. Allowed: {}",
+                        CONFIG_KEYS.join(", ")
+                    );
+                }
+            }
+            Ok(format!("Set {key} = {value}", key = params.key, value = params.value))
+        })
+    }
+
+    fn dispatch_config_auth_set(&mut self, params: ConfigAuthSetParams) -> Result<String> {
+        self.mutate_config(|config| {
+            let name = params.name;
+            config.auth.insert(name.clone(), AuthProfileConfig {
+                header: params.header,
+                value: params.value,
+                value_env: params.value_env,
+                value_prefix: params.value_prefix,
+                domains: params.domains,
+                resolved_value: None,
+            });
+            Ok(format!("Auth profile '{name}' saved"))
+        })
+    }
+
+    fn dispatch_config_auth_delete(&mut self, params: ConfigAuthDeleteParams) -> Result<String> {
+        self.mutate_config(|config| {
+            if config.auth.remove(&params.name).is_some() {
+                Ok(format!("Auth profile '{}' deleted", params.name))
+            } else {
+                anyhow::bail!("auth profile '{}' not found", params.name)
+            }
+        })
+    }
+
+    fn dispatch_config_cookie_set(&mut self, params: ConfigCookieSetParams) -> Result<String> {
+        let label = format!("{}@{}", params.name, params.domain);
+        self.mutate_config(|config| {
+            // Remove existing entry with same name+domain
+            config.cookies.retain(|c| !(c.name == params.name && c.domain == params.domain));
+            config.cookies.push(CookieConfig {
+                name: params.name,
+                value: params.value,
+                value_env: params.value_env,
+                domain: params.domain,
+                path: params.path.unwrap_or_else(|| "/".into()),
+                secure: params.secure,
+                http_only: params.http_only,
+                sensitive: params.sensitive,
+                resolved_value: None,
+            });
+            Ok(format!("Cookie config '{label}' saved"))
+        })
+    }
+
+    fn dispatch_config_cookie_delete(&mut self, params: ConfigCookieDeleteParams) -> Result<String> {
+        self.mutate_config(|config| {
+            let before = config.cookies.len();
+            config.cookies.retain(|c| !(c.name == params.name && c.domain == params.domain));
+            if config.cookies.len() < before {
+                Ok(format!("Cookie config '{}@{}' deleted", params.name, params.domain))
+            } else {
+                anyhow::bail!("cookie config '{}@{}' not found", params.name, params.domain)
+            }
+        })
+    }
+
+    fn dispatch_config_storage_set(&mut self, params: ConfigStorageSetParams) -> Result<String> {
+        let label = format!("{}:{}", params.origin, params.key);
+        self.mutate_config(|config| {
+            // Remove existing entry with same origin+key
+            config.storage.retain(|s| !(s.origin == params.origin && s.key == params.key));
+            config.storage.push(StorageConfig {
+                origin: params.origin,
+                key: params.key,
+                value: params.value,
+                value_env: params.value_env,
+                sensitive: params.sensitive,
+                resolved_value: None,
+            });
+            Ok(format!("Storage config '{label}' saved"))
+        })
+    }
+
+    fn dispatch_config_storage_delete(&mut self, params: ConfigStorageDeleteParams) -> Result<String> {
+        self.mutate_config(|config| {
+            let before = config.storage.len();
+            config.storage.retain(|s| !(s.origin == params.origin && s.key == params.key));
+            if config.storage.len() < before {
+                Ok(format!("Storage config '{}:{}' deleted", params.origin, params.key))
+            } else {
+                anyhow::bail!("storage config '{}:{}' not found", params.origin, params.key)
+            }
+        })
+    }
+
+    fn dispatch_config_header_set(&mut self, params: ConfigHeaderSetParams) -> Result<String> {
+        let domains_label = params.domains.join(", ");
+        self.mutate_config(|config| {
+            // Remove existing rule with same domains
+            config.headers.retain(|h| h.domains != params.domains);
+            config.headers.push(HeaderRuleConfig {
+                domains: params.domains,
+                values: params.values,
+            });
+            Ok(format!("Header rule for [{domains_label}] saved"))
+        })
+    }
+
+    fn dispatch_config_header_delete(&mut self, params: ConfigHeaderDeleteParams) -> Result<String> {
+        self.mutate_config(|config| {
+            let before = config.headers.len();
+            config.headers.retain(|h| h.domains != params.domains);
+            if config.headers.len() < before {
+                Ok(format!("Header rule for [{}] deleted", params.domains.join(", ")))
+            } else {
+                anyhow::bail!("header rule for [{}] not found", params.domains.join(", "))
+            }
+        })
     }
 }
 
