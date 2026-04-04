@@ -57,10 +57,20 @@ pub struct ClickParams {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct DomQueryParams {
-    /// CSS selector to query (returns matching elements)
+    /// CSS selector to query (returns matching elements). Mutually exclusive with script.
     pub selector: Option<String>,
 
-    /// JavaScript to execute against the page DOM
+    /// JavaScript to execute against the page DOM. Available APIs:
+    /// document: querySelector/All, getElementById, getElementsByClassName/TagName/Name,
+    /// createElement, createTextNode, title, body, head, cookie, forms, links.
+    /// Elements: parentElement, children, firstChild, lastChild, nextSibling, previousSibling,
+    /// nextElementSibling, previousElementSibling, closest(sel), matches(sel), contains(node),
+    /// getAttribute, setAttribute, removeAttribute, hasAttribute, classList, dataset,
+    /// textContent (get/set), innerHTML (get/set), outerHTML, appendChild, removeChild,
+    /// insertBefore, remove(), click(), submit(), value (get/set for form fields).
+    /// Events: addEventListener, removeEventListener, dispatchEvent, new Event/CustomEvent.
+    /// Globals: console.log/warn/error, setTimeout, setInterval, atob, btoa,
+    /// requestAnimationFrame, getComputedStyle, MutationObserver, localStorage, window.location.
     pub script: Option<String>,
 
     /// Attribute to extract from matched elements (default: textContent).

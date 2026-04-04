@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
+    /// The browser39 version that last wrote this config file.
+    pub version: Option<String>,
     pub session: SessionConfig,
     pub search: SearchConfig,
     pub auth: HashMap<String, AuthProfileConfig>,
@@ -39,6 +41,21 @@ impl Config {
         let mut config: Config = toml::from_str(&contents)
             .context(format!("parsing config: {}", config_path.display()))?;
         config.resolve()?;
+
+        // Auto-update version stamp if this is a browser39 config with a stale version.
+        // Only touch the file when the existing version field references browser39
+        // (or is absent/empty), never when it belongs to another tool.
+        let current = env!("CARGO_PKG_VERSION");
+        let needs_update = match config.version.as_deref() {
+            None | Some("") => true,
+            Some(v) => v != current,
+        };
+        if needs_update {
+            config.version = Some(current.to_string());
+            // Best-effort save — don't fail startup if the file is read-only
+            let _ = config.save(Some(&config_path));
+        }
+
         Ok(config)
     }
 
@@ -53,6 +70,10 @@ impl Config {
     /// If `section` is Some, return only that top-level key.
     pub fn masked_json(&self, section: Option<&str>) -> serde_json::Value {
         let mut root = serde_json::Map::new();
+
+        if section.is_none() {
+            root.insert("version".into(), json!(self.version));
+        }
 
         if section.is_none() || section == Some("session") {
             root.insert("session".into(), json!({
@@ -241,7 +262,7 @@ impl Default for SessionConfig {
     fn default() -> Self {
         Self {
             start_url: None,
-            user_agent: "browser39/0.1".into(),
+            user_agent: concat!("browser39/", env!("CARGO_PKG_VERSION")).into(),
             timeout_secs: 30,
             max_redirects: 10,
             defaults: SessionDefaults::default(),
@@ -404,7 +425,7 @@ mod tests {
         let toml = r##"
 [session]
 start_url = "https://dashboard.example.com"
-user_agent = "browser39/0.1"
+user_agent = "browser39/1.5.0"
 timeout_secs = 30
 max_redirects = 10
 
@@ -475,7 +496,7 @@ redact = false
             config.session.start_url,
             Some("https://dashboard.example.com".into())
         );
-        assert_eq!(config.session.user_agent, "browser39/0.1");
+        assert_eq!(config.session.user_agent, concat!("browser39/", env!("CARGO_PKG_VERSION")));
         assert_eq!(config.session.timeout_secs, 30);
         assert_eq!(config.session.max_redirects, 10);
         assert_eq!(config.session.defaults.max_tokens, Some(8000));
@@ -531,7 +552,7 @@ redact = false
     #[test]
     fn test_missing_config_file() {
         let config = Config::load(Some(Path::new("/nonexistent/path/config.toml"))).unwrap();
-        assert_eq!(config.session.user_agent, "browser39/0.1");
+        assert_eq!(config.session.user_agent, concat!("browser39/", env!("CARGO_PKG_VERSION")));
         assert_eq!(config.session.timeout_secs, 30);
         assert!(config.auth.is_empty());
         assert!(config.cookies.is_empty());
@@ -633,7 +654,7 @@ domains = ["api.example.com"]
     fn test_session_defaults() {
         let config: Config = toml::from_str("").unwrap();
         assert_eq!(config.session.start_url, None);
-        assert_eq!(config.session.user_agent, "browser39/0.1");
+        assert_eq!(config.session.user_agent, concat!("browser39/", env!("CARGO_PKG_VERSION")));
         assert_eq!(config.session.timeout_secs, 30);
         assert_eq!(config.session.max_redirects, 10);
         assert_eq!(config.session.defaults.max_tokens, None);

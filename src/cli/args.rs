@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
-#[command(name = "browser39", about = "Web browser for AI agents")]
+#[command(name = "browser39", about = "Web browser for AI agents", version)]
 pub struct Cli {
     /// Path to config file (overrides BROWSER39_CONFIG and default)
     #[arg(long, global = true)]

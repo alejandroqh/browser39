@@ -23,7 +23,7 @@ impl McpServer {
 
 #[tool_router]
 impl McpServer {
-    #[tool(description = "Fetch a URL and return the page as token-optimized markdown")]
+    #[tool(description = "Fetch a URL and return the page as token-optimized markdown. Supports GET/POST/PUT/PATCH/DELETE, auth profiles, custom headers, CSS selector extraction, pagination, and binary downloads.")]
     async fn browser39_fetch(
         &self,
         Parameters(params): Parameters<FetchParams>,
@@ -44,7 +44,9 @@ impl McpServer {
         data_cmd(&self.cmd_tx, |tx| McpCommand::Links { tx }).await
     }
 
-    #[tool(description = "Query the DOM with a CSS selector or JavaScript")]
+    #[tool(
+        description = "Query the DOM of the current page using a CSS selector or JavaScript. Use 'selector' for simple extraction (returns matched elements' text/attributes). Use 'script' to run JS with full DOM API: traversal (parentElement, children, closest, matches), lookup (getElementById, getElementsByClassName/TagName), mutation (createElement, appendChild, setAttribute, innerHTML/textContent setters), events (addEventListener, dispatchEvent, new Event), and globals (console.log, setTimeout, atob/btoa, localStorage). Scripts can navigate via element.click() or form.submit(). Console output is captured and returned."
+    )]
     async fn browser39_dom_query(
         &self,
         Parameters(params): Parameters<DomQueryParams>,
@@ -52,7 +54,7 @@ impl McpServer {
         data_cmd(&self.cmd_tx, |tx| McpCommand::DomQuery { params, tx }).await
     }
 
-    #[tool(description = "Fill form field(s) by CSS selector")]
+    #[tool(description = "Fill form field(s) by CSS selector. Works with input, textarea, and select elements. Values persist until form submission.")]
     async fn browser39_fill(
         &self,
         Parameters(params): Parameters<FillParams>,
@@ -60,7 +62,7 @@ impl McpServer {
         data_cmd(&self.cmd_tx, |tx| McpCommand::Fill { params, tx }).await
     }
 
-    #[tool(description = "Submit a form by CSS selector")]
+    #[tool(description = "Submit a form by CSS selector. Sends filled fields via the form's method/action. Returns the response page as markdown.")]
     async fn browser39_submit(
         &self,
         Parameters(params): Parameters<SubmitParams>,
@@ -333,7 +335,14 @@ impl ServerHandler for McpServer {
         .with_instructions(
             "browser39 is a headless web browser for AI agents. \
              Use browser39_fetch to load pages as markdown, browser39_links to list links, \
-             browser39_click to follow links, and browser39_dom_query for CSS/JS queries.",
+             browser39_click to follow links, and browser39_dom_query for CSS/JS queries. \
+             The JS sandbox supports full DOM traversal (parentElement, children, siblings, closest), \
+             DOM lookup (getElementById, getElementsByClassName, getElementsByTagName), \
+             DOM mutation (createElement, appendChild, setAttribute, innerHTML setter), \
+             event handling (addEventListener, dispatchEvent, new Event/CustomEvent), \
+             and Web APIs (localStorage, document.cookie, console.log, setTimeout, atob/btoa). \
+             Use browser39_fill + browser39_submit for form interactions, \
+             and browser39_search to search the web.",
         )
     }
 
