@@ -7,15 +7,7 @@ browser39 works with **Claude Desktop** and **Claude Code** as an MCP server. Th
 Copy and paste this prompt into Claude to have it install browser39 automatically:
 
 ```
-Install browser39 as an MCP server. It's a headless web browser that converts pages to markdown.
-
-Steps:
-1. Clone the repo: git clone https://github.com/alejandroqh/browser39.git ~/.local/share/browser39-repo
-2. Build the binary: cd ~/.local/share/browser39-repo && cargo build --release
-3. Copy the binary to PATH: cp ~/.local/share/browser39-repo/target/release/browser39 /usr/local/bin/browser39
-4. Add to MCP settings with command "browser39" and args ["mcp"]
-
-If cargo is not installed, install Rust first: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+Install browser39 as an MCP server. Download the binary for this system from https://github.com/alejandroqh/browser39/releases/latest/download/ — assets are named browser39-{os}-{arch} (macos-arm64, macos-x64, linux-arm64, linux-x64, windows-x64.exe). Save to ~/.local/bin/browser39, make it executable, and add it to MCP settings with command "browser39" and args ["mcp"].
 ```
 
 ## Claude Desktop
@@ -84,7 +76,7 @@ cp target/release/browser39 /usr/local/bin/
 
 ## Verify
 
-After installation, you should see 19 tools available:
+After installation, you should see 29 tools available:
 
 - `browser39_fetch` — fetch pages as markdown
 - `browser39_click` — follow links

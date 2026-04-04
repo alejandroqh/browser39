@@ -57,7 +57,7 @@ Copy and paste into your agent to install browser39 automatically:
 
 **Claude Code**
 
-> Install browser39 as an MCP server. Clone https://github.com/alejandroqh/browser39.git, build with cargo build --release, copy the binary to /usr/local/bin/browser39, then add it to MCP settings with command "browser39" and args ["mcp"].
+> Install browser39 as an MCP server. Download the binary for this system from https://github.com/alejandroqh/browser39/releases/latest/download/ — assets are named browser39-{os}-{arch} (macos-arm64, macos-x64, linux-arm64, linux-x64, windows-x64.exe). Save to ~/.local/bin/browser39, make it executable, and add it to MCP settings with command "browser39" and args ["mcp"].
 
 **OpenClaw**
 

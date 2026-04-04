@@ -11,16 +11,10 @@ Install the browser39 plugin for web browsing. It's a headless browser that conv
 
 Steps:
 1. Check if browser39 binary exists: which browser39
-2. If not found, clone and build:
-   git clone https://github.com/alejandroqh/browser39.git ~/.local/share/browser39-repo
-   cd ~/.local/share/browser39-repo && cargo build --release
-   cp target/release/browser39 /usr/local/bin/browser39
-3. Install the plugin as a Claude bundle:
-   openclaw plugins install https://github.com/alejandroqh/browser39.git
+2. If not found, download it from https://github.com/alejandroqh/browser39/releases/latest/download/ — assets are named browser39-{os}-{arch} (macos-arm64, macos-x64, linux-arm64, linux-x64, windows-x64.exe). Save to ~/.local/bin/browser39 and make it executable.
+3. Install the plugin: openclaw plugins install https://github.com/alejandroqh/browser39.git
 4. Restart the gateway: openclaw gateway restart
 5. Verify: openclaw plugins list
-
-If cargo is not installed, install Rust first: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
 ## Option A: Claude Bundle (recommended)
@@ -53,7 +47,7 @@ It should show `Format: bundle` with subtype `claude`.
 openclaw gateway restart
 ```
 
-The 19 browser39 MCP tools are now available as `browser39__browser39_fetch`, `browser39__browser39_click`, etc.
+The 29 browser39 MCP tools are now available as `browser39__browser39_fetch`, `browser39__browser39_click`, etc.
 
 ## Option B: Native Plugin
 
@@ -115,12 +109,15 @@ cp target/release/browser39 /usr/local/bin/
 
 Check the [releases page](https://github.com/alejandroqh/browser39/releases) for pre-built binaries:
 
-- `browser39-v1.0.0-macos-arm64` — macOS Apple Silicon
-- `browser39-v1.0.0-linux-arm64` — Linux ARM64
+- `browser39-macos-arm64` — macOS Apple Silicon
+- `browser39-macos-x64` — macOS Intel
+- `browser39-linux-arm64` — Linux ARM64
+- `browser39-linux-x64` — Linux x86_64
+- `browser39-windows-x64.exe` — Windows x86_64
 
 ## Available Tools
 
-Once installed, these 19 tools are available:
+Once installed, these 29 tools are available (19 browsing + 10 config management):
 
 | Tool | Description |
 |------|-------------|
