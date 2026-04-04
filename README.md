@@ -21,7 +21,7 @@ browser39 fetches web pages and converts them to token-optimized Markdown that L
 | HTML to Markdown | Built-in, token-optimized | No (raw HTML or screenshots) | DIY |
 | Token preselection | Content sections, agent picks what to read | No | No |
 | Cookies & sessions | Automatic, persisted, encrypted | Manual | Manual |
-| DOM queries | CSS selectors + JS expressions | Full DOM API | No |
+| DOM queries | CSS selectors + full JS DOM API | Full DOM API | No |
 | Forms | fill + submit | Full interaction | Manual POST |
 | Auth & secrets | Profiles, redaction, opaque handles | Manual | Manual |
 | Transports | MCP (stdio + HTTP), JSONL, CLI | Library API | Library API |
@@ -139,10 +139,19 @@ browser39 minimizes token usage when feeding web content to LLMs:
 
 ### JavaScript execution
 
-boa_engine runs JS expressions against the parsed DOM. Supports `document.querySelector`, `document.querySelectorAll`, element properties, `localStorage`, `document.cookie`, `form.submit()`, and `element.click()`.
+boa_engine runs JavaScript against a full DOM environment — not just `querySelector`, but the APIs scripts actually need:
+
+- **Traversal**: `parentElement`, `children`, `firstChild`, `lastChild`, `nextSibling`, `previousSibling`, `closest()`, `matches()`, `contains()`
+- **Lookup**: `getElementById`, `getElementsByClassName`, `getElementsByTagName`, `getElementsByName`
+- **Mutation**: `createElement`, `createTextNode`, `appendChild`, `removeChild`, `insertBefore`, `setAttribute`, `removeAttribute`, `textContent`/`innerHTML` setters
+- **Events**: `addEventListener`, `removeEventListener`, `dispatchEvent`, `new Event`/`CustomEvent`/`MouseEvent`/`KeyboardEvent`/`InputEvent`
+- **Web APIs**: `localStorage`, `document.cookie`, `console.log` (captured), `setTimeout`, `atob`/`btoa`, `getComputedStyle`, `MutationObserver`
+- **Forms**: `element.value` get/set, `element.click()`, `form.submit()`
 
 ```json
 {"action": "dom_query", "script": "document.querySelectorAll('a').length"}
+{"action": "dom_query", "script": "document.getElementById('content').closest('section').textContent"}
+{"action": "dom_query", "script": "document.querySelector('h1').setAttribute('class', 'modified')"}
 ```
 
 ### Session persistence
