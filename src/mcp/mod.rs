@@ -21,8 +21,7 @@ pub async fn run_mcp_stdio(config: Config, store: Box<dyn SessionStore>) -> Resu
 
 pub async fn run_mcp_sse(config: Config, port: u16) -> Result<()> {
     use rmcp::transport::streamable_http_server::{
-        StreamableHttpServerConfig, StreamableHttpService,
-        session::local::LocalSessionManager,
+        StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
     };
     use std::sync::Arc;
     use tokio_util::sync::CancellationToken;
@@ -52,17 +51,19 @@ pub async fn run_mcp_sse(config: Config, port: u16) -> Result<()> {
         let svc = service.clone();
         tokio::spawn(async move {
             let io = hyper_util::rt::TokioIo::new(stream);
-            if let Err(e) = hyper_util::server::conn::auto::Builder::new(
-                hyper_util::rt::TokioExecutor::new(),
-            )
-            .serve_connection(io, hyper::service::service_fn(move |req| {
-                let mut svc = svc.clone();
-                async move {
-                    use tower_service::Service;
-                    svc.call(req).await
-                }
-            }))
-            .await
+            if let Err(e) =
+                hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new())
+                    .serve_connection(
+                        io,
+                        hyper::service::service_fn(move |req| {
+                            let mut svc = svc.clone();
+                            async move {
+                                use tower_service::Service;
+                                svc.call(req).await
+                            }
+                        }),
+                    )
+                    .await
             {
                 eprintln!("connection error: {e}");
             }

@@ -429,7 +429,13 @@ impl BrowserService {
                 Some(redirect_url) if redirect_url != final_url => {
                     let redir = self
                         .http
-                        .fetch(&redirect_url, &HttpMethod::Get, &all_headers, None, Some(options.timeout_secs))
+                        .fetch(
+                            &redirect_url,
+                            &HttpMethod::Get,
+                            &all_headers,
+                            None,
+                            Some(options.timeout_secs),
+                        )
                         .await?;
                     final_url = redir.url;
                     final_elapsed = redir.elapsed_ms;
@@ -476,7 +482,13 @@ impl BrowserService {
                 } else {
                     parsed.links(Some(&final_url))
                 };
-                (convert.markdown, convert.tokens_est, convert.truncated, convert.next_offset, links)
+                (
+                    convert.markdown,
+                    convert.tokens_est,
+                    convert.truncated,
+                    convert.next_offset,
+                    links,
+                )
             }
         };
 
@@ -562,19 +574,17 @@ impl BrowserService {
             .history
             .iter()
             .enumerate()
-            .filter(|(_, state)| {
-                match query {
-                    Some(q) => {
-                        let q = q.to_lowercase();
-                        state.result.url.to_lowercase().contains(&q)
-                            || state
-                                .result
-                                .title
-                                .as_ref()
-                                .is_some_and(|t| t.to_lowercase().contains(&q))
-                    }
-                    None => true,
+            .filter(|(_, state)| match query {
+                Some(q) => {
+                    let q = q.to_lowercase();
+                    state.result.url.to_lowercase().contains(&q)
+                        || state
+                            .result
+                            .title
+                            .as_ref()
+                            .is_some_and(|t| t.to_lowercase().contains(&q))
                 }
+                None => true,
             })
             .rev()
             .take(limit)
@@ -609,11 +619,9 @@ impl BrowserService {
 
     pub fn forward(&mut self) -> Result<PageResult> {
         if self.history.is_empty() || self.history_index >= self.history.len() - 1 {
-            return Err(ServiceError::new(
-                ErrorCode::NoHistory,
-                "no next page in history".into(),
-            )
-            .into());
+            return Err(
+                ServiceError::new(ErrorCode::NoHistory, "no next page in history".into()).into(),
+            );
         }
         self.history_index += 1;
         Ok(self.history[self.history_index].result.clone())
@@ -683,8 +691,7 @@ impl BrowserService {
         let mut filled = 0;
 
         for (selector, value) in fields {
-            form::validate_field_selector(&document, selector)
-                .map_err(form::map_form_error)?;
+            form::validate_field_selector(&document, selector).map_err(form::map_form_error)?;
             self.filled_fields
                 .insert(selector.to_string(), value.to_string());
             filled += 1;
@@ -703,8 +710,7 @@ impl BrowserService {
         let html = self.current_html()?.to_string();
         let current_url = self.current_page()?.result.url.clone();
 
-        let parsed =
-            form::parse_form(&html, form_selector).map_err(form::map_form_error)?;
+        let parsed = form::parse_form(&html, form_selector).map_err(form::map_form_error)?;
 
         // Start with DOM default values, then overlay filled fields.
         // Scoped block because Html is not Send and can't live across .await.
@@ -749,9 +755,7 @@ impl BrowserService {
         })?;
         let origin = url.origin();
         if !origin.is_tuple() {
-            return Err(
-                ServiceError::new(ErrorCode::SessionError, "opaque origin".into()).into(),
-            );
+            return Err(ServiceError::new(ErrorCode::SessionError, "opaque origin".into()).into());
         }
         Ok(origin.ascii_serialization())
     }
@@ -766,11 +770,7 @@ impl BrowserService {
 
     pub fn storage_get(&self, key: &str, origin: Option<&str>) -> Result<StorageGetResult> {
         let origin = self.resolve_origin(origin)?;
-        let value = self
-            .storage
-            .get(&origin)
-            .and_then(|m| m.get(key))
-            .cloned();
+        let value = self.storage.get(&origin).and_then(|m| m.get(key)).cloned();
         Ok(StorageGetResult {
             key: key.to_string(),
             value,
@@ -778,7 +778,12 @@ impl BrowserService {
         })
     }
 
-    pub fn storage_set(&mut self, key: &str, value: &str, origin: Option<&str>) -> Result<StorageGetResult> {
+    pub fn storage_set(
+        &mut self,
+        key: &str,
+        value: &str,
+        origin: Option<&str>,
+    ) -> Result<StorageGetResult> {
         let origin = self.resolve_origin(origin)?;
         self.storage
             .entry(origin)
@@ -807,11 +812,7 @@ impl BrowserService {
 
     pub fn storage_list(&self, origin: Option<&str>) -> Result<StorageListResult> {
         let origin = self.resolve_origin(origin)?;
-        let entries = self
-            .storage
-            .get(&origin)
-            .cloned()
-            .unwrap_or_default();
+        let entries = self.storage.get(&origin).cloned().unwrap_or_default();
         let count = entries.len();
         Ok(StorageListResult {
             origin,
@@ -822,11 +823,7 @@ impl BrowserService {
 
     pub fn storage_clear(&mut self, origin: Option<&str>) -> Result<StorageClearResult> {
         let origin = self.resolve_origin(origin)?;
-        let cleared = self
-            .storage
-            .remove(&origin)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let cleared = self.storage.remove(&origin).map(|m| m.len()).unwrap_or(0);
         if cleared > 0 {
             self.save_snapshot();
         }
@@ -835,9 +832,8 @@ impl BrowserService {
 
     pub fn dom_query(&self, selector: &str, attr: &str) -> Result<DomSelectorResult> {
         let html = self.current_html()?;
-        query_selector(html, selector, attr).map_err(|e| {
-            ServiceError::new(ErrorCode::DomQueryError, e.to_string()).into()
-        })
+        query_selector(html, selector, attr)
+            .map_err(|e| ServiceError::new(ErrorCode::DomQueryError, e.to_string()).into())
     }
 
     pub fn dom_script(&mut self, script: &str) -> Result<DomScriptResult> {
@@ -848,27 +844,23 @@ impl BrowserService {
         // Build script context from session state
         let origin = self.current_origin().unwrap_or_default();
         let ctx = crate::core::dom_script::ScriptContext {
-            storage: self
-                .storage
-                .get(&origin)
-                .cloned()
-                .unwrap_or_default(),
+            storage: self.storage.get(&origin).cloned().unwrap_or_default(),
             origin: origin.clone(),
             cookie_jar: self.http.jar().clone(),
             current_url,
             filled_fields: self.filled_fields.clone(),
         };
 
-        let (result, side_effects) =
-            execute_script(&html, script, Some(ctx)).map_err(|e| {
-                ServiceError::new(ErrorCode::DomQueryError, e.to_string())
-            })?;
+        let (result, side_effects) = execute_script(&html, script, Some(ctx))
+            .map_err(|e| ServiceError::new(ErrorCode::DomQueryError, e.to_string()))?;
 
         // Merge side effects back into session
         if let Some(effects) = side_effects {
             let storage_changed = {
                 let current = self.storage.get(&origin);
-                current.map(|c| *c != effects.storage).unwrap_or(!effects.storage.is_empty())
+                current
+                    .map(|c| *c != effects.storage)
+                    .unwrap_or(!effects.storage.is_empty())
             };
 
             if !effects.storage.is_empty() {
@@ -877,6 +869,13 @@ impl BrowserService {
                 self.storage.remove(&origin);
             }
             self.filled_fields = effects.filled_fields;
+
+            // If DOM was mutated, update the stored HTML
+            if let Some(mutated_html) = effects.mutated_html
+                && let Some(page) = self.history.get_mut(self.history_index)
+            {
+                page.html = mutated_html;
+            }
 
             if storage_changed {
                 self.save_snapshot();
@@ -895,7 +894,8 @@ impl BrowserService {
 
     /// Redact a CookiesResult in place.
     pub fn redact_cookies(&mut self, result: &mut CookiesResult) {
-        self.redaction.redact_cookies_result(result, &mut self.secrets);
+        self.redaction
+            .redact_cookies_result(result, &mut self.secrets);
     }
 
     /// Redact a StorageGetResult in place.
@@ -905,7 +905,8 @@ impl BrowserService {
 
     /// Redact a StorageListResult in place.
     pub fn redact_storage_list_result(&mut self, result: &mut StorageListResult) {
-        self.redaction.redact_storage_list(result, &mut self.secrets);
+        self.redaction
+            .redact_storage_list(result, &mut self.secrets);
     }
 
     /// Resolve secret handles in a string (for incoming commands).
@@ -932,9 +933,7 @@ impl BrowserService {
 
     fn current_page(&self) -> Result<&PageState> {
         if self.history.is_empty() {
-            return Err(
-                ServiceError::new(ErrorCode::NoPage, "no page loaded".into()).into(),
-            );
+            return Err(ServiceError::new(ErrorCode::NoPage, "no page loaded".into()).into());
         }
         Ok(&self.history[self.history_index])
     }
@@ -986,7 +985,6 @@ fn resolve_url(base: &str, href: &str) -> Result<String> {
     let base_url: reqwest::Url = base.parse().context("invalid base URL")?;
     Ok(base_url.join(href).context("invalid href")?.to_string())
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -1052,7 +1050,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_service_construction() {
-        let service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         assert!(service.history.is_empty());
         assert_eq!(service.history_index, 0);
         assert!(service.storage.is_empty());
@@ -1060,7 +1063,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_service_storage_init() {
-        let service = BrowserService::new(config_with_storage(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service = BrowserService::new(
+            config_with_storage(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
 
         let app_storage = service.storage.get("https://app.example.com").unwrap();
         assert_eq!(app_storage.get("theme").unwrap(), "dark");
@@ -1074,7 +1082,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_service_info_empty() {
-        let service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let info = service.info();
         assert!(info.alive);
         assert_eq!(info.current_url, None);
@@ -1088,7 +1101,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_cookies_empty() {
-        let service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let result = service.cookies(None).unwrap();
         assert_eq!(result.count, 0);
         assert!(result.cookies.is_empty());
@@ -1096,7 +1114,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_set_cookie_and_list() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
 
         let result = service
             .set_cookie("session", "abc123", "example.com", "/", false, false, None)
@@ -1112,10 +1135,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_set_cookie_with_flags() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
 
         service
-            .set_cookie("token", "xyz", "secure.example.com", "/api", true, true, Some(3600))
+            .set_cookie(
+                "token",
+                "xyz",
+                "secure.example.com",
+                "/api",
+                true,
+                true,
+                Some(3600),
+            )
             .unwrap();
 
         let cookies = service.cookies(None).unwrap();
@@ -1129,7 +1165,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_cookies_domain_filter() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
 
         service
             .set_cookie("a", "1", "example.com", "/", false, false, None)
@@ -1148,7 +1189,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_cookie() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
 
         service
             .set_cookie("session", "abc", "example.com", "/", false, false, None)
@@ -1162,14 +1208,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_cookie_nonexistent() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let result = service.delete_cookie("nope", "example.com").unwrap();
         assert!(!result.deleted);
     }
 
     #[tokio::test]
     async fn test_info_cookies_count() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         assert_eq!(service.info().cookies_count, 0);
 
         service
@@ -1199,7 +1255,10 @@ mod tests {
             }],
             ..Config::default()
         };
-        let service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         let cookies = service.cookies(None).unwrap();
         assert_eq!(cookies.count, 1);
@@ -1210,7 +1269,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_service_links_no_page() {
-        let service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let err = service.links().unwrap_err();
         let se = err.downcast_ref::<ServiceError>().unwrap();
         assert_eq!(se.code, ErrorCode::NoPage);
@@ -1218,7 +1282,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_service_back_no_history() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let err = service.back().unwrap_err();
         let se = err.downcast_ref::<ServiceError>().unwrap();
         assert_eq!(se.code, ErrorCode::NoHistory);
@@ -1226,7 +1295,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_service_forward_no_history() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let err = service.forward().unwrap_err();
         let se = err.downcast_ref::<ServiceError>().unwrap();
         assert_eq!(se.code, ErrorCode::NoHistory);
@@ -1234,7 +1308,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_service_current_html_no_page() {
-        let service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let err = service.current_html().unwrap_err();
         let se = err.downcast_ref::<ServiceError>().unwrap();
         assert_eq!(se.code, ErrorCode::NoPage);
@@ -1242,7 +1321,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_service_current_url_empty() {
-        let service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         assert_eq!(service.current_url(), None);
     }
 
@@ -1294,7 +1378,10 @@ mod tests {
             },
             ..Config::default()
         };
-        let service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         // Options without max_tokens → session default applied
         let opts = FetchOptions::default();
@@ -1325,7 +1412,10 @@ mod tests {
             },
             ..Config::default()
         };
-        let service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
         let opts = service.default_fetch_options();
 
         assert_eq!(opts.max_tokens, Some(4000));
@@ -1337,7 +1427,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_search_url_default_engine() {
-        let service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let url = service.search_url("rust programming");
         assert_eq!(url, "https://html.duckduckgo.com/html/?q=rust+programming");
     }
@@ -1350,21 +1445,34 @@ mod tests {
             },
             ..Config::default()
         };
-        let service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
         let url = service.search_url("hello world");
         assert_eq!(url, "https://www.google.com/search?q=hello+world");
     }
 
     #[tokio::test]
     async fn test_search_url_special_chars() {
-        let service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let url = service.search_url("what is 2+2?");
         assert_eq!(url, "https://html.duckduckgo.com/html/?q=what+is+2%2B2%3F");
     }
 
     #[tokio::test]
     async fn test_auth_profile_not_found() {
-        let service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let mut headers = HashMap::new();
         let err = service
             .apply_auth_profile("nonexistent", "https://example.com", &mut headers)
@@ -1375,7 +1483,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_auth_profile_domain_mismatch() {
-        let service = BrowserService::new(config_with_auth(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service = BrowserService::new(
+            config_with_auth(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let mut headers = HashMap::new();
         let err = service
             .apply_auth_profile("github", "https://evil.com/steal", &mut headers)
@@ -1386,7 +1499,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_auth_profile_domain_match() {
-        let service = BrowserService::new(config_with_auth(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service = BrowserService::new(
+            config_with_auth(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let mut headers = HashMap::new();
         service
             .apply_auth_profile("github", "https://api.github.com/repos", &mut headers)
@@ -1396,7 +1514,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_auth_profile_wildcard_match() {
-        let service = BrowserService::new(config_with_auth(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service = BrowserService::new(
+            config_with_auth(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let mut headers = HashMap::new();
         service
             .apply_auth_profile("github", "https://raw.github.com/file", &mut headers)
@@ -1453,7 +1576,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_fill_no_page() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let err = service
             .fill(&[("#username".into(), "agent".into())])
             .unwrap_err();
@@ -1463,7 +1591,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_fill_single_field() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         inject_page(&mut service, "https://example.com/form", FORM_HTML);
 
         let result = service
@@ -1478,7 +1611,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_fill_multiple_fields() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         inject_page(&mut service, "https://example.com/form", FORM_HTML);
 
         let result = service
@@ -1492,7 +1630,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_fill_invalid_selector() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         inject_page(&mut service, "https://example.com/form", FORM_HTML);
 
         let err = service
@@ -1504,7 +1647,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_fill_not_a_field() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         inject_page(&mut service, "https://example.com/form", FORM_HTML);
 
         let err = service
@@ -1516,7 +1664,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_fill_clears_on_overwrite() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         inject_page(&mut service, "https://example.com/form", FORM_HTML);
 
         service
@@ -1536,7 +1689,12 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_fetch_returns_page_result() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let opts = FetchOptions::default();
         let result = service
             .fetch(
@@ -1572,7 +1730,12 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_fetch_links_fetch_index_back_forward() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let opts = FetchOptions::default();
 
         // Step 1: Fetch a page
@@ -1628,7 +1791,12 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_history_truncation_on_new_navigation() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let opts = FetchOptions::default();
 
         // Fetch 3 pages
@@ -1697,7 +1865,12 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_fetch_by_text() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let opts = FetchOptions::default();
 
         service
@@ -1741,7 +1914,10 @@ mod tests {
             },
             ..Config::default()
         };
-        let service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         // Page should already be loaded
         assert_eq!(service.history.len(), 1);
@@ -1759,7 +1935,12 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_fetch_with_pagination() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let opts = FetchOptions {
             max_tokens: Some(5),
             ..Default::default()
@@ -1828,7 +2009,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_history_list_empty() {
-        let service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         let result = service.history(None, 10);
         assert_eq!(result.count, 0);
         assert_eq!(result.total, 0);
@@ -1837,10 +2023,27 @@ mod tests {
 
     #[tokio::test]
     async fn test_history_list_with_pages() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
-        inject_page(&mut service, "https://example.com", "<html><head><title>Example</title></head><body>Hello</body></html>");
-        inject_page(&mut service, "https://google.com", "<html><head><title>Google</title></head><body>Search</body></html>");
-        inject_page(&mut service, "https://rust-lang.org", "<html><head><title>Rust</title></head><body>Lang</body></html>");
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
+        inject_page(
+            &mut service,
+            "https://example.com",
+            "<html><head><title>Example</title></head><body>Hello</body></html>",
+        );
+        inject_page(
+            &mut service,
+            "https://google.com",
+            "<html><head><title>Google</title></head><body>Search</body></html>",
+        );
+        inject_page(
+            &mut service,
+            "https://rust-lang.org",
+            "<html><head><title>Rust</title></head><body>Lang</body></html>",
+        );
 
         let result = service.history(None, 10);
         assert_eq!(result.count, 3);
@@ -1856,7 +2059,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_history_list_with_limit() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
         inject_page(&mut service, "https://a.com", "<html><body>A</body></html>");
         inject_page(&mut service, "https://b.com", "<html><body>B</body></html>");
         inject_page(&mut service, "https://c.com", "<html><body>C</body></html>");
@@ -1870,10 +2078,27 @@ mod tests {
 
     #[tokio::test]
     async fn test_history_search() {
-        let mut service = BrowserService::new(test_config(), Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
-        inject_page(&mut service, "https://example.com", "<html><head><title>Example</title></head><body>Hello</body></html>");
-        inject_page(&mut service, "https://google.com", "<html><head><title>Google Search</title></head><body>Search</body></html>");
-        inject_page(&mut service, "https://rust-lang.org", "<html><head><title>Rust</title></head><body>Lang</body></html>");
+        let mut service = BrowserService::new(
+            test_config(),
+            Box::new(crate::core::session_store::InMemoryStore),
+        )
+        .await
+        .unwrap();
+        inject_page(
+            &mut service,
+            "https://example.com",
+            "<html><head><title>Example</title></head><body>Hello</body></html>",
+        );
+        inject_page(
+            &mut service,
+            "https://google.com",
+            "<html><head><title>Google Search</title></head><body>Search</body></html>",
+        );
+        inject_page(
+            &mut service,
+            "https://rust-lang.org",
+            "<html><head><title>Rust</title></head><body>Lang</body></html>",
+        );
 
         // Search by URL
         let result = service.history(Some("google"), 10);

@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
@@ -33,13 +33,11 @@ impl Config {
         let contents = match std::fs::read_to_string(&config_path) {
             Ok(c) => c,
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Config::default()),
-            Err(e) => {
-                return Err(e).context(format!("reading config: {}", config_path.display()))
-            }
+            Err(e) => return Err(e).context(format!("reading config: {}", config_path.display())),
         };
 
-        let mut config: Config =
-            toml::from_str(&contents).context(format!("parsing config: {}", config_path.display()))?;
+        let mut config: Config = toml::from_str(&contents)
+            .context(format!("parsing config: {}", config_path.display()))?;
         config.resolve()?;
         Ok(config)
     }
@@ -47,8 +45,7 @@ impl Config {
     /// Write this config to disk (atomic write with fsync + chmod 600).
     pub fn save(&self, path: Option<&Path>) -> Result<()> {
         let config_path = Self::config_path(path);
-        let toml_str = toml::to_string_pretty(self)
-            .context("serializing config to TOML")?;
+        let toml_str = toml::to_string_pretty(self).context("serializing config to TOML")?;
         super::persistence::atomic_write(&config_path, toml_str.as_bytes())
     }
 
@@ -75,82 +72,103 @@ impl Config {
         }
 
         if section.is_none() || section == Some("search") {
-            root.insert("search".into(), json!({
-                "engine": self.search.engine,
-            }));
+            root.insert(
+                "search".into(),
+                json!({
+                    "engine": self.search.engine,
+                }),
+            );
         }
 
         if section.is_none() || section == Some("auth") {
             let mut auth_map = serde_json::Map::new();
             for (name, profile) in &self.auth {
-                auth_map.insert(name.clone(), json!({
-                    "header": profile.header,
-                    "value": MASK,
-                    "value_env": profile.value_env,
-                    "value_prefix": profile.value_prefix,
-                    "domains": profile.domains,
-                }));
+                auth_map.insert(
+                    name.clone(),
+                    json!({
+                        "header": profile.header,
+                        "value": MASK,
+                        "value_env": profile.value_env,
+                        "value_prefix": profile.value_prefix,
+                        "domains": profile.domains,
+                    }),
+                );
             }
             root.insert("auth".into(), serde_json::Value::Object(auth_map));
         }
 
         if section.is_none() || section == Some("cookies") {
-            let cookies: Vec<serde_json::Value> = self.cookies.iter().map(|c| {
-                let value = if c.sensitive {
-                    json!(MASK)
-                } else {
-                    json!(c.value)
-                };
-                json!({
-                    "name": c.name,
-                    "value": value,
-                    "value_env": c.value_env,
-                    "domain": c.domain,
-                    "path": c.path,
-                    "secure": c.secure,
-                    "http_only": c.http_only,
-                    "sensitive": c.sensitive,
+            let cookies: Vec<serde_json::Value> = self
+                .cookies
+                .iter()
+                .map(|c| {
+                    let value = if c.sensitive {
+                        json!(MASK)
+                    } else {
+                        json!(c.value)
+                    };
+                    json!({
+                        "name": c.name,
+                        "value": value,
+                        "value_env": c.value_env,
+                        "domain": c.domain,
+                        "path": c.path,
+                        "secure": c.secure,
+                        "http_only": c.http_only,
+                        "sensitive": c.sensitive,
+                    })
                 })
-            }).collect();
+                .collect();
             root.insert("cookies".into(), json!(cookies));
         }
 
         if section.is_none() || section == Some("storage") {
-            let storage: Vec<serde_json::Value> = self.storage.iter().map(|s| {
-                let value = if s.sensitive {
-                    json!(MASK)
-                } else {
-                    json!(s.value)
-                };
-                json!({
-                    "origin": s.origin,
-                    "key": s.key,
-                    "value": value,
-                    "value_env": s.value_env,
-                    "sensitive": s.sensitive,
+            let storage: Vec<serde_json::Value> = self
+                .storage
+                .iter()
+                .map(|s| {
+                    let value = if s.sensitive {
+                        json!(MASK)
+                    } else {
+                        json!(s.value)
+                    };
+                    json!({
+                        "origin": s.origin,
+                        "key": s.key,
+                        "value": value,
+                        "value_env": s.value_env,
+                        "sensitive": s.sensitive,
+                    })
                 })
-            }).collect();
+                .collect();
             root.insert("storage".into(), json!(storage));
         }
 
         if section.is_none() || section == Some("headers") {
-            let headers: Vec<serde_json::Value> = self.headers.iter().map(|h| {
-                json!({
-                    "domains": h.domains,
-                    "values": h.values,
+            let headers: Vec<serde_json::Value> = self
+                .headers
+                .iter()
+                .map(|h| {
+                    json!({
+                        "domains": h.domains,
+                        "values": h.values,
+                    })
                 })
-            }).collect();
+                .collect();
             root.insert("headers".into(), json!(headers));
         }
 
         if section.is_none() || section == Some("security") {
-            root.insert("security".into(), json!({
-                "sensitive_cookies": self.security.sensitive_cookies,
-                "sensitive_headers": self.security.sensitive_headers,
-                "patterns": self.security.patterns.keys().collect::<Vec<_>>(),
-                "mcp": { "redact": self.security.mcp.redact },
-                "jsonl": { "redact": self.security.jsonl.redact },
-            }));
+            root.insert(
+                "security".into(),
+                json!({
+                    "sensitive_cookies": self.security.sensitive_cookies,
+                    "sensitive_headers": self.security.sensitive_headers,
+                    "patterns": self.security.patterns.keys().collect::<Vec<_>>(),
+                    "mcp": { "redact": self.security.mcp.redact },
+                    "jsonl": { "redact": self.security.jsonl.redact },
+                }),
+            );
         }
 
         serde_json::Value::Object(root)
@@ -192,8 +210,9 @@ fn default_config_path() -> PathBuf {
 fn resolve_value(value: &Option<String>, value_env: &Option<String>) -> Result<String> {
     match (value, value_env) {
         (Some(v), _) => Ok(v.clone()),
-        (None, Some(env_name)) => std::env::var(env_name)
-            .with_context(|| format!("env var '{env_name}' not set")),
+        (None, Some(env_name)) => {
+            std::env::var(env_name).with_context(|| format!("env var '{env_name}' not set"))
+        }
         (None, None) => bail!("either 'value' or 'value_env' must be set"),
     }
 }
@@ -467,11 +486,13 @@ redact = false
         let github = &config.auth["github"];
         assert_eq!(github.header, "Authorization");
         assert_eq!(github.domains, vec!["api.github.com", "github.com"]);
-        assert!(github
-            .resolved_value
-            .as_ref()
-            .unwrap()
-            .starts_with("Bearer ghp_"));
+        assert!(
+            github
+                .resolved_value
+                .as_ref()
+                .unwrap()
+                .starts_with("Bearer ghp_")
+        );
 
         // Cookies
         assert_eq!(config.cookies.len(), 2);
@@ -526,33 +547,33 @@ redact = false
     fn test_resolve_value_env() {
         // SAFETY: test-only, single-threaded test runner for this test
         unsafe { env::set_var("BROWSER39_TEST_VAR_1", "env-value") };
-        let result =
-            resolve_value(&None, &Some("BROWSER39_TEST_VAR_1".into())).unwrap();
+        let result = resolve_value(&None, &Some("BROWSER39_TEST_VAR_1".into())).unwrap();
         assert_eq!(result, "env-value");
         unsafe { env::remove_var("BROWSER39_TEST_VAR_1") };
     }
 
     #[test]
     fn test_resolve_value_missing_env() {
-        let result = resolve_value(
-            &None,
-            &Some("BROWSER39_DEFINITELY_NOT_SET_XYZ".into()),
-        );
+        let result = resolve_value(&None, &Some("BROWSER39_DEFINITELY_NOT_SET_XYZ".into()));
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("BROWSER39_DEFINITELY_NOT_SET_XYZ"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("BROWSER39_DEFINITELY_NOT_SET_XYZ")
+        );
     }
 
     #[test]
     fn test_resolve_value_both_none() {
         let result = resolve_value(&None, &None);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("either 'value' or 'value_env'"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("either 'value' or 'value_env'")
+        );
     }
 
     #[test]
@@ -643,12 +664,19 @@ engine = "https://www.google.com/search?q={}"
     #[test]
     fn test_security_defaults() {
         let config: Config = toml::from_str("").unwrap();
-        assert!(config.security.sensitive_cookies.contains(&"session".into()));
+        assert!(
+            config
+                .security
+                .sensitive_cookies
+                .contains(&"session".into())
+        );
         assert!(config.security.sensitive_cookies.contains(&"jwt".into()));
-        assert!(config
-            .security
-            .sensitive_headers
-            .contains(&"authorization".into()));
+        assert!(
+            config
+                .security
+                .sensitive_headers
+                .contains(&"authorization".into())
+        );
         assert!(config.security.mcp.redact);
         assert!(!config.security.jsonl.redact);
     }

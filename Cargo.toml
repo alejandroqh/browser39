@@ -36,6 +36,7 @@ rand = "0.9"
 regex = "1"
 notify = "7"
 boa_engine = "0.20"
+html5ever = "0.39"
 form_urlencoded = "1"
 rmcp = { version = "1", features = ["server", "transport-io", "transport-streamable-http-server", "macros"] }
 schemars = "1"

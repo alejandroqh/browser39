@@ -12,12 +12,9 @@ use super::url::resolve_href;
 
 pub(crate) static SEL_TITLE: LazyLock<Selector> =
     LazyLock::new(|| Selector::parse("title").unwrap());
-pub(crate) static SEL_HTML: LazyLock<Selector> =
-    LazyLock::new(|| Selector::parse("html").unwrap());
-pub(crate) static SEL_BODY: LazyLock<Selector> =
-    LazyLock::new(|| Selector::parse("body").unwrap());
-pub(crate) static SEL_HEAD: LazyLock<Selector> =
-    LazyLock::new(|| Selector::parse("head").unwrap());
+pub(crate) static SEL_HTML: LazyLock<Selector> = LazyLock::new(|| Selector::parse("html").unwrap());
+pub(crate) static SEL_BODY: LazyLock<Selector> = LazyLock::new(|| Selector::parse("body").unwrap());
+pub(crate) static SEL_HEAD: LazyLock<Selector> = LazyLock::new(|| Selector::parse("head").unwrap());
 static SEL_META: LazyLock<Selector> = LazyLock::new(|| Selector::parse("meta").unwrap());
 static SEL_LINKS: LazyLock<Selector> = LazyLock::new(|| Selector::parse("a[href]").unwrap());
 static SEL_IMG: LazyLock<Selector> = LazyLock::new(|| Selector::parse("img").unwrap());
@@ -57,9 +54,10 @@ fn heading_section_start(heading: NodeRef<'_, Node>) -> NodeRef<'_, Node> {
     {
         // Common wrapper patterns: div.mw-heading, div.mw-heading2, etc.
         if el.name() == "div"
-            && el
-                .attr("class")
-                .is_some_and(|c| c.split_whitespace().any(|cls| cls.starts_with("mw-heading")))
+            && el.attr("class").is_some_and(|c| {
+                c.split_whitespace()
+                    .any(|cls| cls.starts_with("mw-heading"))
+            })
         {
             return parent;
         }
@@ -165,7 +163,9 @@ impl ParsedHtml {
             if http_equiv == "content-type" {
                 content_type = content.map(|s| s.to_string());
             }
-            if content_type.is_none() && let Some(charset) = el.value().attr("charset") {
+            if content_type.is_none()
+                && let Some(charset) = el.value().attr("charset")
+            {
                 content_type = Some(format!("text/html; charset={charset}"));
             }
         }
@@ -188,7 +188,9 @@ impl ParsedHtml {
                 let raw_href = el.value().attr("href").unwrap_or_default();
                 // For links with no text, try title/aria-label, then img alt
                 if text.is_empty() {
-                    if let Some(label) = el.value().attr("title")
+                    if let Some(label) = el
+                        .value()
+                        .attr("title")
                         .or_else(|| el.value().attr("aria-label"))
                         .filter(|s| !s.trim().is_empty())
                     {
@@ -428,7 +430,7 @@ impl MarkdownWriter {
             Node::Element(el) => {
                 let tag = el.name.local.as_ref();
                 match tag {
-                    "script" | "style" | "noscript" => {},
+                    "script" | "style" | "noscript" => {}
 
                     "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                         if self.in_link {
@@ -484,7 +486,8 @@ impl MarkdownWriter {
                             let meaningful = link_text.trim().replace(['*', '_', '`'], "");
                             if meaningful.trim().is_empty() {
                                 // Try title/aria-label on the <a> element
-                                let label = el.attr("title")
+                                let label = el
+                                    .attr("title")
                                     .or_else(|| el.attr("aria-label"))
                                     .filter(|s| !s.trim().is_empty());
                                 if let Some(lbl) = label {
@@ -499,7 +502,9 @@ impl MarkdownWriter {
                                             if let Node::Element(e) = n.value()
                                                 && e.name.local.as_ref() == "img"
                                             {
-                                                return Some(e.attr("alt").filter(|a| !a.trim().is_empty()));
+                                                return Some(
+                                                    e.attr("alt").filter(|a| !a.trim().is_empty()),
+                                                );
                                             }
                                             None
                                         })
@@ -764,11 +769,7 @@ fn collect_table_rows(node: NodeRef<'_, Node>) -> Vec<TableRow> {
     rows
 }
 
-fn collect_rows_recursive(
-    node: NodeRef<'_, Node>,
-    rows: &mut Vec<TableRow>,
-    in_thead: bool,
-) {
+fn collect_rows_recursive(node: NodeRef<'_, Node>, rows: &mut Vec<TableRow>, in_thead: bool) {
     for child in node.children() {
         let child_node: &Node = child.value();
         if let Node::Element(el) = child_node {
@@ -1044,8 +1045,9 @@ mod tests {
 
     #[test]
     fn test_metadata_description() {
-        let p =
-            ParsedHtml::parse(r#"<html><head><meta name="description" content="A page"></head></html>"#);
+        let p = ParsedHtml::parse(
+            r#"<html><head><meta name="description" content="A page"></head></html>"#,
+        );
         assert_eq!(p.metadata().description, Some("A page".to_string()));
     }
 
@@ -1111,9 +1113,7 @@ mod tests {
 
     #[test]
     fn test_links_multiple() {
-        let p = ParsedHtml::parse(
-            r#"<a href="/a">A</a><a href="/b">B</a><a href="/c">C</a>"#,
-        );
+        let p = ParsedHtml::parse(r#"<a href="/a">A</a><a href="/b">B</a><a href="/c">C</a>"#);
         let links = p.links(None);
         assert_eq!(links.len(), 3);
         assert_eq!(links[0].i, 0);
@@ -1198,9 +1198,7 @@ mod tests {
 
     #[test]
     fn test_nested_list() {
-        let p = ParsedHtml::parse(
-            "<ul><li>A<ul><li>A1</li><li>A2</li></ul></li><li>B</li></ul>",
-        );
+        let p = ParsedHtml::parse("<ul><li>A<ul><li>A1</li><li>A2</li></ul></li><li>B</li></ul>");
         let md = p.to_markdown();
         assert!(md.contains("- A"));
         assert!(md.contains("  - A1"));
@@ -1237,7 +1235,8 @@ mod tests {
 
     #[test]
     fn test_table_basic() {
-        let html = "<table><tr><th>Name</th><th>Age</th></tr><tr><td>Alice</td><td>30</td></tr></table>";
+        let html =
+            "<table><tr><th>Name</th><th>Age</th></tr><tr><td>Alice</td><td>30</td></tr></table>";
         let p = ParsedHtml::parse(html);
         let md = p.to_markdown();
         assert!(md.contains("| Name | Age |"));
@@ -1302,7 +1301,9 @@ mod tests {
     #[test]
     fn test_link_with_icon_font_skipped() {
         // <a> containing only an empty <i> — no meaningful text, no img, no label
-        let p = ParsedHtml::parse(r#"<a href="https://facebook.com"><i class="fa fa-facebook"></i></a>"#);
+        let p = ParsedHtml::parse(
+            r#"<a href="https://facebook.com"><i class="fa fa-facebook"></i></a>"#,
+        );
         assert_eq!(p.to_markdown(), "");
     }
 
@@ -1346,9 +1347,7 @@ mod tests {
 
     #[test]
     fn test_heading_inside_link_no_markers() {
-        let p = ParsedHtml::parse(
-            r#"<a href="https://example.com"><h3>Article Title</h3></a>"#,
-        );
+        let p = ParsedHtml::parse(r#"<a href="https://example.com"><h3>Article Title</h3></a>"#);
         let md = p.to_markdown();
         assert_eq!(md, "[Article Title](https://example.com)");
         assert!(!md.contains("###"));
@@ -1356,9 +1355,7 @@ mod tests {
 
     #[test]
     fn test_different_urls_not_deduped() {
-        let p = ParsedHtml::parse(
-            r#"<a href="/a">Link A</a> <a href="/b">Link B</a>"#,
-        );
+        let p = ParsedHtml::parse(r#"<a href="/a">Link A</a> <a href="/b">Link B</a>"#);
         let md = p.to_markdown();
         assert!(md.contains("[Link A](/a)"));
         assert!(md.contains("[Link B](/b)"));

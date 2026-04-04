@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
-use super::config::{domain_matches, Config, HeaderRuleConfig};
+use super::config::{Config, HeaderRuleConfig, domain_matches};
 use super::page::{CookieInfo, HttpMethod};
 
 #[derive(Debug, Clone)]
@@ -70,7 +70,11 @@ impl CookieJar {
         store
             .iter_unexpired()
             .filter_map(|c| {
-                let domain_str = c.domain.as_cow().map(|d| d.into_owned()).unwrap_or_default();
+                let domain_str = c
+                    .domain
+                    .as_cow()
+                    .map(|d| d.into_owned())
+                    .unwrap_or_default();
                 if let Some(filter) = domain_filter
                     && !domain_matches(filter, &domain_str)
                 {
@@ -84,10 +88,9 @@ impl CookieJar {
                     secure: c.secure().unwrap_or(false),
                     http_only: c.http_only().unwrap_or(false),
                     expires: match &c.expires {
-                        cookie_store::CookieExpiration::AtUtc(t) => {
-                            t.format(&time::format_description::well_known::Rfc3339)
-                                .ok()
-                        }
+                        cookie_store::CookieExpiration::AtUtc(t) => t
+                            .format(&time::format_description::well_known::Rfc3339)
+                            .ok(),
                         cookie_store::CookieExpiration::SessionEnd => None,
                     },
                     handle: None,
@@ -261,9 +264,7 @@ impl HttpClient {
         timeout_secs: Option<u64>,
     ) -> Result<HttpResponse> {
         let parsed_url: reqwest::Url = url.parse().context("invalid URL")?;
-        let domain = parsed_url
-            .host_str()
-            .unwrap_or_default();
+        let domain = parsed_url.host_str().unwrap_or_default();
 
         let defaults = self.resolve_headers_for_domain(domain);
 

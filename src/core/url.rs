@@ -5,8 +5,7 @@ use std::sync::LazyLock;
 use super::dom_script::execute_script;
 use super::page::PendingNavigation;
 
-static SEL_SCRIPT: LazyLock<Selector> =
-    LazyLock::new(|| Selector::parse("script").unwrap());
+static SEL_SCRIPT: LazyLock<Selector> = LazyLock::new(|| Selector::parse("script").unwrap());
 static SEL_META_REFRESH: LazyLock<Selector> =
     LazyLock::new(|| Selector::parse("meta[http-equiv]").unwrap());
 
@@ -30,12 +29,11 @@ pub fn detect_client_redirect(html: &str, base_url: &str) -> Option<String> {
     // 1) Check <meta http-equiv="refresh">
     for el in doc.select(&SEL_META_REFRESH) {
         let equiv = el.value().attr("http-equiv").unwrap_or_default();
-        if equiv.eq_ignore_ascii_case("refresh") {
-            if let Some(content) = el.value().attr("content") {
-                if let Some(url) = parse_meta_refresh(content) {
-                    return Some(resolve_absolute(base_url, &url));
-                }
-            }
+        if equiv.eq_ignore_ascii_case("refresh")
+            && let Some(content) = el.value().attr("content")
+            && let Some(url) = parse_meta_refresh(content)
+        {
+            return Some(resolve_absolute(base_url, &url));
         }
     }
 
@@ -51,12 +49,11 @@ pub fn detect_client_redirect(html: &str, base_url: &str) -> Option<String> {
         }
     }
 
-    if !combined.is_empty() {
-        if let Ok((result, _)) = execute_script(html, &combined, None) {
-            if let Some(PendingNavigation::Link { href }) = result.pending_navigation {
-                return Some(resolve_absolute(base_url, &href));
-            }
-        }
+    if !combined.is_empty()
+        && let Ok((result, _)) = execute_script(html, &combined, None)
+        && let Some(PendingNavigation::Link { href }) = result.pending_navigation
+    {
+        return Some(resolve_absolute(base_url, &href));
     }
 
     None
@@ -69,8 +66,8 @@ fn parse_meta_refresh(content: &str) -> Option<String> {
     let url_pos = lower.find("url=")?;
     let url_part = content[url_pos + 4..].trim();
     let url = url_part
-        .trim_start_matches(|c| c == '\'' || c == '"')
-        .trim_end_matches(|c| c == '\'' || c == '"');
+        .trim_start_matches(['\'', '"'])
+        .trim_end_matches(['\'', '"']);
     if url.is_empty() {
         None
     } else {

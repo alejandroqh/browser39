@@ -102,5 +102,4 @@ mod tests {
         assert!(!ErrorCode::SessionError.retryable());
         assert!(!ErrorCode::UnknownAction.retryable());
     }
-
 }

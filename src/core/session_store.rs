@@ -78,7 +78,7 @@ impl SessionStore for DiskStore {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(e) => {
                 return Err(e)
-                    .with_context(|| format!("reading session file: {}", self.path.display()))
+                    .with_context(|| format!("reading session file: {}", self.path.display()));
             }
         };
 

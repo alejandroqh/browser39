@@ -75,24 +75,34 @@ impl<'de> Deserialize<'de> for StepDelay {
         let value = serde_json::Value::deserialize(deserializer)?;
         match value {
             serde_json::Value::Number(n) => {
-                let v = n.as_f64().ok_or_else(|| serde::de::Error::custom("invalid number"))?;
+                let v = n
+                    .as_f64()
+                    .ok_or_else(|| serde::de::Error::custom("invalid number"))?;
                 if v < 0.0 {
                     return Err(serde::de::Error::custom("step_delay must be non-negative"));
                 }
                 Ok(StepDelay::Fixed(v))
             }
             serde_json::Value::Array(arr) if arr.len() == 2 => {
-                let min = arr[0].as_f64().ok_or_else(|| serde::de::Error::custom("min must be a number"))?;
-                let max = arr[1].as_f64().ok_or_else(|| serde::de::Error::custom("max must be a number"))?;
+                let min = arr[0]
+                    .as_f64()
+                    .ok_or_else(|| serde::de::Error::custom("min must be a number"))?;
+                let max = arr[1]
+                    .as_f64()
+                    .ok_or_else(|| serde::de::Error::custom("max must be a number"))?;
                 if min < 0.0 || max < 0.0 {
-                    return Err(serde::de::Error::custom("step_delay values must be non-negative"));
+                    return Err(serde::de::Error::custom(
+                        "step_delay values must be non-negative",
+                    ));
                 }
                 if min > max {
                     return Err(serde::de::Error::custom("min must be <= max"));
                 }
                 Ok(StepDelay::Range(min, max))
             }
-            _ => Err(serde::de::Error::custom("step_delay must be a number or [min, max] array")),
+            _ => Err(serde::de::Error::custom(
+                "step_delay must be a number or [min, max] array",
+            )),
         }
     }
 }
@@ -256,11 +266,7 @@ pub struct ResultEnvelope {
 }
 
 impl ResultEnvelope {
-    pub fn success(
-        id: String,
-        seq: u64,
-        data: impl Serialize,
-    ) -> Result<Self, serde_json::Error> {
+    pub fn success(id: String, seq: u64, data: impl Serialize) -> Result<Self, serde_json::Error> {
         let value = serde_json::to_value(data)?;
         let map = match value {
             Value::Object(m) => m,
@@ -352,7 +358,8 @@ mod tests {
 
     #[test]
     fn test_command_dom_query_selector() {
-        let json = r#"{"id":"d","action":"dom_query","v":1,"seq":4,"selector":"h1","attr":"textContent"}"#;
+        let json =
+            r#"{"id":"d","action":"dom_query","v":1,"seq":4,"selector":"h1","attr":"textContent"}"#;
         let cmd: CommandEnvelope = serde_json::from_str(json).unwrap();
         if let Action::DomQuery(ref dq) = cmd.action {
             assert_eq!(dq.selector, Some("h1".into()));
@@ -390,22 +397,13 @@ mod tests {
     #[test]
     fn test_command_back_forward_info_quit() {
         for (json, expected) in [
-            (
-                r#"{"id":"a","action":"back","v":1,"seq":1}"#,
-                Action::Back,
-            ),
+            (r#"{"id":"a","action":"back","v":1,"seq":1}"#, Action::Back),
             (
                 r#"{"id":"a","action":"forward","v":1,"seq":1}"#,
                 Action::Forward,
             ),
-            (
-                r#"{"id":"a","action":"info","v":1,"seq":1}"#,
-                Action::Info,
-            ),
-            (
-                r#"{"id":"a","action":"quit","v":1,"seq":1}"#,
-                Action::Quit,
-            ),
+            (r#"{"id":"a","action":"info","v":1,"seq":1}"#, Action::Info),
+            (r#"{"id":"a","action":"quit","v":1,"seq":1}"#, Action::Quit),
         ] {
             let cmd: CommandEnvelope = serde_json::from_str(json).unwrap();
             assert_eq!(cmd.action, expected);
@@ -561,8 +559,12 @@ mod tests {
 
     #[test]
     fn test_result_envelope_error() {
-        let env =
-            ResultEnvelope::error("x".into(), 1, ErrorCode::HttpError, "connection refused".into());
+        let env = ResultEnvelope::error(
+            "x".into(),
+            1,
+            ErrorCode::HttpError,
+            "connection refused".into(),
+        );
         let json = serde_json::to_string(&env).unwrap();
         let value: serde_json::Value = serde_json::from_str(&json).unwrap();
 
@@ -574,12 +576,8 @@ mod tests {
         assert_eq!(value["retryable"], true);
 
         // Non-retryable error
-        let env = ResultEnvelope::error(
-            "y".into(),
-            2,
-            ErrorCode::InvalidCommand,
-            "bad input".into(),
-        );
+        let env =
+            ResultEnvelope::error("y".into(), 2, ErrorCode::InvalidCommand, "bad input".into());
         let json = serde_json::to_string(&env).unwrap();
         let value: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert_eq!(value["retryable"], false);

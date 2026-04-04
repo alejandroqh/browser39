@@ -147,10 +147,7 @@ mod tests {
         let handle = store.store("my-api-key-12345");
         let text = "key is my-api-key-12345 in the response";
         let redacted = store.redact_known(text);
-        assert_eq!(
-            redacted,
-            format!("key is {handle} in the response")
-        );
+        assert_eq!(redacted, format!("key is {handle} in the response"));
     }
 
     #[test]

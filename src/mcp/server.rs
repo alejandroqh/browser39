@@ -150,7 +150,9 @@ impl McpServer {
         page_cmd(&self.cmd_tx, |tx| McpCommand::Forward { tx }).await
     }
 
-    #[tool(description = "Search or list browsing history. Use query to search by URL/title, or omit to list recent pages.")]
+    #[tool(
+        description = "Search or list browsing history. Use query to search by URL/title, or omit to list recent pages."
+    )]
     async fn browser39_history(
         &self,
         Parameters(params): Parameters<HistoryParams>,
@@ -171,7 +173,9 @@ impl McpServer {
 
     // ─── Config Management Tools ───────────────────────────────────
 
-    #[tool(description = "View browser39 configuration with sensitive values masked. Never shows raw config file. Use section to filter: session, search, auth, cookies, storage, headers, security.")]
+    #[tool(
+        description = "View browser39 configuration with sensitive values masked. Never shows raw config file. Use section to filter: session, search, auth, cookies, storage, headers, security."
+    )]
     async fn browser39_config_show(
         &self,
         Parameters(params): Parameters<ConfigShowParams>,
@@ -179,7 +183,9 @@ impl McpServer {
         data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigShow { params, tx }).await
     }
 
-    #[tool(description = "Set a browser39 config value. Keys: session.start_url, session.user_agent, session.timeout_secs, session.max_redirects, session.persistence, session.defaults.max_tokens, session.defaults.strip_nav, session.defaults.include_links, session.defaults.include_images, search.engine")]
+    #[tool(
+        description = "Set a browser39 config value. Keys: session.start_url, session.user_agent, session.timeout_secs, session.max_redirects, session.persistence, session.defaults.max_tokens, session.defaults.strip_nav, session.defaults.include_links, session.defaults.include_images, search.engine"
+    )]
     async fn browser39_config_set(
         &self,
         Parameters(params): Parameters<ConfigSetParams>,
@@ -187,7 +193,9 @@ impl McpServer {
         data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigSet { params, tx }).await
     }
 
-    #[tool(description = "Add or update an auth profile in the config. Credential values are stored securely and NEVER returned via MCP.")]
+    #[tool(
+        description = "Add or update an auth profile in the config. Credential values are stored securely and NEVER returned via MCP."
+    )]
     async fn browser39_config_auth_set(
         &self,
         Parameters(params): Parameters<ConfigAuthSetParams>,
@@ -200,15 +208,25 @@ impl McpServer {
         &self,
         Parameters(params): Parameters<ConfigAuthDeleteParams>,
     ) -> Result<String, String> {
-        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigAuthDelete { params, tx }).await
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigAuthDelete {
+            params,
+            tx,
+        })
+        .await
     }
 
-    #[tool(description = "Add or update a preloaded cookie in the config. Sensitive cookies are masked in config_show.")]
+    #[tool(
+        description = "Add or update a preloaded cookie in the config. Sensitive cookies are masked in config_show."
+    )]
     async fn browser39_config_cookie_set(
         &self,
         Parameters(params): Parameters<ConfigCookieSetParams>,
     ) -> Result<String, String> {
-        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigCookieSet { params, tx }).await
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigCookieSet {
+            params,
+            tx,
+        })
+        .await
     }
 
     #[tool(description = "Delete a preloaded cookie from the config")]
@@ -216,15 +234,25 @@ impl McpServer {
         &self,
         Parameters(params): Parameters<ConfigCookieDeleteParams>,
     ) -> Result<String, String> {
-        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigCookieDelete { params, tx }).await
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigCookieDelete {
+            params,
+            tx,
+        })
+        .await
     }
 
-    #[tool(description = "Add or update a preloaded storage entry in the config. Sensitive entries are masked in config_show.")]
+    #[tool(
+        description = "Add or update a preloaded storage entry in the config. Sensitive entries are masked in config_show."
+    )]
     async fn browser39_config_storage_set(
         &self,
         Parameters(params): Parameters<ConfigStorageSetParams>,
     ) -> Result<String, String> {
-        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigStorageSet { params, tx }).await
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigStorageSet {
+            params,
+            tx,
+        })
+        .await
     }
 
     #[tool(description = "Delete a preloaded storage entry from the config")]
@@ -232,7 +260,11 @@ impl McpServer {
         &self,
         Parameters(params): Parameters<ConfigStorageDeleteParams>,
     ) -> Result<String, String> {
-        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigStorageDelete { params, tx }).await
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigStorageDelete {
+            params,
+            tx,
+        })
+        .await
     }
 
     #[tool(description = "Add or update default header rules for domains in the config")]
@@ -240,7 +272,11 @@ impl McpServer {
         &self,
         Parameters(params): Parameters<ConfigHeaderSetParams>,
     ) -> Result<String, String> {
-        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigHeaderSet { params, tx }).await
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigHeaderSet {
+            params,
+            tx,
+        })
+        .await
     }
 
     #[tool(description = "Delete default header rules for domains from the config")]
@@ -248,7 +284,11 @@ impl McpServer {
         &self,
         Parameters(params): Parameters<ConfigHeaderDeleteParams>,
     ) -> Result<String, String> {
-        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigHeaderDelete { params, tx }).await
+        data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigHeaderDelete {
+            params,
+            tx,
+        })
+        .await
     }
 }
 
@@ -301,15 +341,33 @@ impl ServerHandler for McpServer {
         &self,
         _request: Option<PaginatedRequestParams>,
         _context: rmcp::service::RequestContext<rmcp::RoleServer>,
-    ) -> impl std::future::Future<
-        Output = Result<ListResourcesResult, rmcp::ErrorData>,
-    > + Send
-           + '_ {
+    ) -> impl std::future::Future<Output = Result<ListResourcesResult, rmcp::ErrorData>> + Send + '_
+    {
         std::future::ready(Ok(ListResourcesResult::with_all_items(vec![
-            make_resource("browser39://page", "Current page", Some("text/markdown"), Some("Current page content as markdown")),
-            make_resource("browser39://page/links", "Page links", Some("application/json"), Some("Links on the current page as JSON")),
-            make_resource("browser39://page/meta", "Page metadata", Some("application/json"), Some("Current page metadata as JSON")),
-            make_resource("browser39://cookies", "Cookies", Some("application/json"), Some("Cookies for the current domain as JSON")),
+            make_resource(
+                "browser39://page",
+                "Current page",
+                Some("text/markdown"),
+                Some("Current page content as markdown"),
+            ),
+            make_resource(
+                "browser39://page/links",
+                "Page links",
+                Some("application/json"),
+                Some("Links on the current page as JSON"),
+            ),
+            make_resource(
+                "browser39://page/meta",
+                "Page metadata",
+                Some("application/json"),
+                Some("Current page metadata as JSON"),
+            ),
+            make_resource(
+                "browser39://cookies",
+                "Cookies",
+                Some("application/json"),
+                Some("Cookies for the current domain as JSON"),
+            ),
         ])))
     }
 
@@ -318,10 +376,8 @@ impl ServerHandler for McpServer {
         &self,
         request: ReadResourceRequestParams,
         _context: rmcp::service::RequestContext<rmcp::RoleServer>,
-    ) -> impl std::future::Future<
-        Output = Result<ReadResourceResult, rmcp::ErrorData>,
-    > + Send
-           + '_ {
+    ) -> impl std::future::Future<Output = Result<ReadResourceResult, rmcp::ErrorData>> + Send + '_
+    {
         async move {
             let uri = &request.uri;
             match uri.as_str() {
@@ -357,13 +413,10 @@ impl ServerHandler for McpServer {
                     )]))
                 }
                 "browser39://cookies" => {
-                    let cookies = send_cmd(
-                        &self.cmd_tx,
-                        |tx| McpCommand::Cookies {
-                            params: super::params::CookiesParams { domain: None },
-                            tx,
-                        },
-                    )
+                    let cookies = send_cmd(&self.cmd_tx, |tx| McpCommand::Cookies {
+                        params: super::params::CookiesParams { domain: None },
+                        tx,
+                    })
                     .await
                     .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?
                     .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
@@ -418,10 +471,7 @@ fn format_page_result(page: &PageResult) -> String {
     if let Some(ref links) = page.links {
         out.push_str(&format!("**Links:** {}\n", links.len()));
     }
-    out.push_str(&format!(
-        "**Tokens (est):** {}\n",
-        page.stats.tokens_est
-    ));
+    out.push_str(&format!("**Tokens (est):** {}\n", page.stats.tokens_est));
     if page.truncated {
         if let Some(next) = page.next_offset {
             out.push_str(&format!(
@@ -440,7 +490,10 @@ fn format_page_result(page: &PageResult) -> String {
                     cs.selector, cs.tokens_est
                 ));
             } else {
-                out.push_str(&format!("- `{}` — ~{} tokens\n", cs.selector, cs.tokens_est));
+                out.push_str(&format!(
+                    "- `{}` — ~{} tokens\n",
+                    cs.selector, cs.tokens_est
+                ));
             }
         }
     }

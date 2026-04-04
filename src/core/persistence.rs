@@ -79,13 +79,8 @@ pub fn atomic_write(path: &Path, data: &[u8]) -> Result<()> {
     file.sync_all().context("fsync temp file")?;
     drop(file);
 
-    fs::rename(&tmp_path, path).with_context(|| {
-        format!(
-            "renaming {} -> {}",
-            tmp_path.display(),
-            path.display()
-        )
-    })?;
+    fs::rename(&tmp_path, path)
+        .with_context(|| format!("renaming {} -> {}", tmp_path.display(), path.display()))?;
 
     set_permissions_600(path)?;
     Ok(())

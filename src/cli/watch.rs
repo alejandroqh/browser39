@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use notify::{Config as NotifyConfig, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc;
 
-use crate::cli::dispatch::{clog, CommandProcessor, ProcessResult};
+use crate::cli::dispatch::{CommandProcessor, ProcessResult, clog};
 use crate::service::service::BrowserService;
 
 macro_rules! wlog {
@@ -40,11 +40,7 @@ fn read_new_lines(path: &Path, offset: &mut u64) -> Result<Vec<String>> {
     Ok(text.lines().map(String::from).collect())
 }
 
-pub async fn run_watch(
-    service: &mut BrowserService,
-    input: &Path,
-    output: &Path,
-) -> Result<()> {
+pub async fn run_watch(service: &mut BrowserService, input: &Path, output: &Path) -> Result<()> {
     if !input.exists() {
         anyhow::bail!(
             "input file does not exist: {} (create it with `touch` first)",
@@ -149,7 +145,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_watch(&mut service, input.path(), &output_path)
             .await
@@ -171,14 +170,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_watch_quit_exits_cleanly() {
-        let input =
-            write_commands(&[r#"{"id":"q","action":"quit","v":1,"seq":1}"#]);
+        let input = write_commands(&[r#"{"id":"q","action":"quit","v":1,"seq":1}"#]);
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().to_path_buf();
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_watch(&mut service, input.path(), &output_path)
             .await
@@ -204,7 +205,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_watch(&mut service, input.path(), &output_path)
             .await
@@ -228,7 +232,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_watch(&mut service, input.path(), &output_path)
             .await
@@ -262,22 +269,21 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         let watch_input = input_path.clone();
         let watch_output = output_path.clone();
-        let handle = tokio::spawn(async move {
-            run_watch(&mut service, &watch_input, &watch_output).await
-        });
+        let handle =
+            tokio::spawn(async move { run_watch(&mut service, &watch_input, &watch_output).await });
 
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
         {
             use std::fs::OpenOptions;
-            let mut f = OpenOptions::new()
-                .append(true)
-                .open(&input_path)
-                .unwrap();
+            let mut f = OpenOptions::new().append(true).open(&input_path).unwrap();
             writeln!(f, r#"{{"id":"a","action":"info","v":1,"seq":1}}"#).unwrap();
             writeln!(f, r#"{{"id":"b","action":"quit","v":1,"seq":2}}"#).unwrap();
             f.flush().unwrap();

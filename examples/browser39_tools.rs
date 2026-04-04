@@ -59,9 +59,7 @@ pub fn tool_definitions() -> Value {
 // BrowserClient — singleton managing browser39 watch subprocess
 // ---------------------------------------------------------------------------
 
-static CLIENT: LazyLock<Mutex<BrowserClient>> = LazyLock::new(|| {
-    Mutex::new(BrowserClient::new())
-});
+static CLIENT: LazyLock<Mutex<BrowserClient>> = LazyLock::new(|| Mutex::new(BrowserClient::new()));
 
 struct BrowserClient {
     process: Option<Child>,
@@ -72,11 +70,19 @@ struct BrowserClient {
 impl BrowserClient {
     fn new() -> Self {
         let dir = std::env::temp_dir().join("browser39_agent");
-        Self { process: None, seq: 0, dir }
+        Self {
+            process: None,
+            seq: 0,
+            dir,
+        }
     }
 
-    fn commands_path(&self) -> PathBuf { self.dir.join("commands.jsonl") }
-    fn results_path(&self) -> PathBuf { self.dir.join("results.jsonl") }
+    fn commands_path(&self) -> PathBuf {
+        self.dir.join("commands.jsonl")
+    }
+    fn results_path(&self) -> PathBuf {
+        self.dir.join("results.jsonl")
+    }
 
     fn ensure_running(&mut self) -> Result<(), String> {
         if let Some(ref mut child) = self.process {
@@ -87,12 +93,9 @@ impl BrowserClient {
             }
         }
 
-        fs::create_dir_all(&self.dir)
-            .map_err(|e| format!("browser39: mkdir: {e}"))?;
-        File::create(self.commands_path())
-            .map_err(|e| format!("browser39: create: {e}"))?;
-        File::create(self.results_path())
-            .map_err(|e| format!("browser39: create: {e}"))?;
+        fs::create_dir_all(&self.dir).map_err(|e| format!("browser39: mkdir: {e}"))?;
+        File::create(self.commands_path()).map_err(|e| format!("browser39: create: {e}"))?;
+        File::create(self.results_path()).map_err(|e| format!("browser39: create: {e}"))?;
         self.seq = 0;
 
         let child = Command::new("browser39")
@@ -120,10 +123,14 @@ impl BrowserClient {
             "id": format!("cmd-{seq}"), "action": action, "v": 1, "seq": seq,
         });
         if let (Some(obj), Some(extra_obj)) = (cmd.as_object_mut(), extra.as_object()) {
-            for (k, v) in extra_obj { obj.insert(k.clone(), v.clone()); }
+            for (k, v) in extra_obj {
+                obj.insert(k.clone(), v.clone());
+            }
         }
 
-        let mut f = OpenOptions::new().append(true).open(self.commands_path())
+        let mut f = OpenOptions::new()
+            .append(true)
+            .open(self.commands_path())
             .map_err(|e| format!("browser39: write: {e}"))?;
         writeln!(f, "{}", serde_json::to_string(&cmd).unwrap())
             .map_err(|e| format!("browser39: write: {e}"))?;
@@ -136,7 +143,10 @@ impl BrowserClient {
             }
             if let Ok(file) = File::open(self.results_path()) {
                 let lines: Vec<String> = BufReader::new(file)
-                    .lines().filter_map(|l| l.ok()).filter(|l| !l.trim().is_empty()).collect();
+                    .lines()
+                    .filter_map(|l| l.ok())
+                    .filter(|l| !l.trim().is_empty())
+                    .collect();
                 for line in lines.iter().rev().take(2) {
                     if let Ok(val) = serde_json::from_str::<Value>(line) {
                         if val.get("seq").and_then(|s| s.as_u64()) == Some(seq) {
@@ -165,7 +175,10 @@ impl BrowserClient {
 }
 
 fn send_command(action: &str, extra: Value) -> Result<Value, String> {
-    CLIENT.lock().map_err(|e| format!("lock: {e}"))?.send(action, extra)
+    CLIENT
+        .lock()
+        .map_err(|e| format!("lock: {e}"))?
+        .send(action, extra)
 }
 
 // ---------------------------------------------------------------------------
@@ -180,7 +193,10 @@ fn url_encode(s: &str) -> String {
                 out.push(b as char);
             }
             b' ' => out.push('+'),
-            _ => { out.push('%'); out.push_str(&format!("{b:02X}")); }
+            _ => {
+                out.push('%');
+                out.push_str(&format!("{b:02X}"));
+            }
         }
     }
     out
@@ -192,15 +208,19 @@ fn url_decode(s: &str) -> String {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'+' {
-            out.push(' '); i += 1;
+            out.push(' ');
+            i += 1;
         } else if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let (Some(h), Some(l)) = (hex(bytes[i+1]), hex(bytes[i+2])) {
-                out.push((h << 4 | l) as char); i += 3;
+            if let (Some(h), Some(l)) = (hex(bytes[i + 1]), hex(bytes[i + 2])) {
+                out.push((h << 4 | l) as char);
+                i += 3;
             } else {
-                out.push('%'); i += 1;
+                out.push('%');
+                i += 1;
             }
         } else {
-            out.push(bytes[i] as char); i += 1;
+            out.push(bytes[i] as char);
+            i += 1;
         }
     }
     out
@@ -227,12 +247,17 @@ pub struct SearchResult {
 /// Search the web via DuckDuckGo. Returns up to 5 results.
 pub fn web_search(query: &str) -> Result<Vec<SearchResult>, String> {
     let url = format!("https://html.duckduckgo.com/html/?q={}", url_encode(query));
-    let result = send_command("fetch", serde_json::json!({
-        "url": url,
-        "options": {"max_tokens": 4000, "strip_nav": true, "show_selectors_first": false}
-    }))?;
+    let result = send_command(
+        "fetch",
+        serde_json::json!({
+            "url": url,
+            "options": {"max_tokens": 4000, "strip_nav": true, "show_selectors_first": false}
+        }),
+    )?;
 
-    if result.get("ok") != Some(&Value::Bool(true)) { return Ok(vec![]); }
+    if result.get("ok") != Some(&Value::Bool(true)) {
+        return Ok(vec![]);
+    }
 
     let links = result["links"].as_array().cloned().unwrap_or_default();
     let mut results = Vec::new();
@@ -240,17 +265,28 @@ pub fn web_search(query: &str) -> Result<Vec<SearchResult>, String> {
     for link in &links {
         let href = link["href"].as_str().unwrap_or("");
         let text = link["text"].as_str().unwrap_or("");
-        if text.is_empty() || !href.contains("uddg=") { continue; }
-        if href.contains("ad_domain") || href.contains("ad_provider") { continue; }
+        if text.is_empty() || !href.contains("uddg=") {
+            continue;
+        }
+        if href.contains("ad_domain") || href.contains("ad_provider") {
+            continue;
+        }
 
-        let real_url = href.replace('?', "&").split('&')
+        let real_url = href
+            .replace('?', "&")
+            .split('&')
             .find(|p| p.starts_with("uddg="))
             .map(|p| url_decode(&p[5..]));
 
         if let Some(real_url) = real_url {
-            results.push(SearchResult { title: text.to_string(), url: real_url });
+            results.push(SearchResult {
+                title: text.to_string(),
+                url: real_url,
+            });
         }
-        if results.len() >= 5 { break; }
+        if results.len() >= 5 {
+            break;
+        }
     }
     Ok(results)
 }
@@ -266,7 +302,10 @@ pub fn visit_website(url: &str, selector: Option<&str>) -> Result<String, String
     }
     let result = send_command("fetch", serde_json::json!({"url": url, "options": options}))?;
     if result.get("ok") != Some(&Value::Bool(true)) {
-        return Err(result["error"].as_str().unwrap_or("fetch failed").to_string());
+        return Err(result["error"]
+            .as_str()
+            .unwrap_or("fetch failed")
+            .to_string());
     }
     Ok(result["markdown"].as_str().unwrap_or("").to_string())
 }
@@ -277,8 +316,14 @@ pub fn dispatch_tool(name: &str, args: &Value) -> Result<String, String> {
         "web_search" => {
             let query = args["query"].as_str().ok_or("missing query")?;
             let results = web_search(query)?;
-            if results.is_empty() { return Ok("no results found".into()); }
-            Ok(results.iter().map(|r| format!("{} | {}", r.title, r.url)).collect::<Vec<_>>().join("\n"))
+            if results.is_empty() {
+                return Ok("no results found".into());
+            }
+            Ok(results
+                .iter()
+                .map(|r| format!("{} | {}", r.title, r.url))
+                .collect::<Vec<_>>()
+                .join("\n"))
         }
         "visit_website" => {
             let url = args["url"].as_str().ok_or("missing url")?;
@@ -295,13 +340,20 @@ pub fn dispatch_tool(name: &str, args: &Value) -> Result<String, String> {
 
 fn main() {
     println!("=== Tool Definitions ===");
-    println!("{}", serde_json::to_string_pretty(&tool_definitions()).unwrap());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&tool_definitions()).unwrap()
+    );
 
     println!("\n=== web_search(\"python asyncio\") ===");
     match web_search("python asyncio") {
         Ok(results) => {
             for r in &results {
-                println!("  {} | {}", &r.title[..r.title.len().min(60)], &r.url[..r.url.len().min(70)]);
+                println!(
+                    "  {} | {}",
+                    &r.title[..r.title.len().min(60)],
+                    &r.url[..r.url.len().min(70)]
+                );
             }
         }
         Err(e) => println!("  error: {e}"),

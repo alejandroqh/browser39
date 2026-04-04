@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{Context, Result};
 
-use super::config::{domain_matches, AuthProfileConfig};
+use super::config::{AuthProfileConfig, domain_matches};
 use super::error::ErrorCode;
 use crate::service::service::ServiceError;
 
@@ -123,13 +123,8 @@ mod tests {
     fn test_apply_auth_profile_domain_mismatch() {
         let profiles = test_profiles();
         let mut headers = HashMap::new();
-        let err = apply_auth_profile(
-            &profiles,
-            "github",
-            "https://evil.com/steal",
-            &mut headers,
-        )
-        .unwrap_err();
+        let err = apply_auth_profile(&profiles, "github", "https://evil.com/steal", &mut headers)
+            .unwrap_err();
         let se = err.downcast_ref::<ServiceError>().unwrap();
         assert_eq!(se.code, ErrorCode::AuthProfileDomainMismatch);
     }

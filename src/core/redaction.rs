@@ -7,7 +7,10 @@ use super::secrets::SecretStore;
 /// Built-in regex patterns for common secret formats.
 fn builtin_patterns() -> Vec<(&'static str, &'static str)> {
     vec![
-        ("jwt", r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
+        (
+            "jwt",
+            r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}",
+        ),
         ("github_pat", r"gh[ps]_[A-Za-z0-9_]{36,}"),
         ("github_fine", r"github_pat_[A-Za-z0-9_]{22,}"),
         ("openai", r"sk-[A-Za-z0-9]{20,}"),
@@ -98,7 +101,9 @@ impl RedactionEngine {
     /// Check if a cookie name is considered sensitive.
     pub fn is_sensitive_cookie(&self, name: &str) -> bool {
         let lower = name.to_ascii_lowercase();
-        self.sensitive_cookies.iter().any(|s| lower.contains(s.as_str()))
+        self.sensitive_cookies
+            .iter()
+            .any(|s| lower.contains(s.as_str()))
     }
 
     pub fn redact_page_result(&self, page: &mut PageResult, secrets: &mut SecretStore) {

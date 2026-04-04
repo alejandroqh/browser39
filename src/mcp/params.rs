@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use crate::core::page::{default_true, HttpMethod};
+use crate::core::page::{HttpMethod, default_true};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct FetchParams {

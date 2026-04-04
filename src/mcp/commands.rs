@@ -263,11 +263,7 @@ impl BrowserServiceRunner {
                 );
             }
             McpCommand::GetPageMeta { tx } => {
-                let _ = tx.send(
-                    self.service
-                        .current_page_result()
-                        .map(|p| p.meta.clone()),
-                );
+                let _ = tx.send(self.service.current_page_result().map(|p| p.meta.clone()));
             }
             // Config management
             McpCommand::ConfigShow { params, tx } => {
@@ -329,9 +325,7 @@ impl BrowserServiceRunner {
         opts.show_selectors_first = params.show_selectors_first;
         opts.download_path = params.download_path;
         // Resolve secret handles in body
-        let body = params
-            .body
-            .map(|b| self.service.resolve_secrets(&b));
+        let body = params.body.map(|b| self.service.resolve_secrets(&b));
         self.service
             .fetch(
                 &params.url,
@@ -404,14 +398,7 @@ impl BrowserServiceRunner {
         }
         opts.show_selectors_first = false;
         self.service
-            .fetch(
-                &url,
-                &HttpMethod::Get,
-                &HashMap::new(),
-                None,
-                None,
-                &opts,
-            )
+            .fetch(&url, &HttpMethod::Get, &HashMap::new(), None, None, &opts)
             .await
     }
 
@@ -436,10 +423,13 @@ impl BrowserServiceRunner {
 
     fn dispatch_config_show(&self, params: ConfigShowParams) -> Result<serde_json::Value> {
         let section = params.section.as_deref();
-        if let Some(s) = section {
-            if !CONFIG_SECTIONS.contains(&s) {
-                anyhow::bail!("unknown config section '{s}'. Valid: {}", CONFIG_SECTIONS.join(", "));
-            }
+        if let Some(s) = section
+            && !CONFIG_SECTIONS.contains(&s)
+        {
+            anyhow::bail!(
+                "unknown config section '{s}'. Valid: {}",
+                CONFIG_SECTIONS.join(", ")
+            );
         }
         Ok(self.service.config().masked_json(section))
     }
@@ -448,7 +438,8 @@ impl BrowserServiceRunner {
         self.mutate_config(|config| {
             match params.key.as_str() {
                 "session.start_url" => {
-                    config.session.start_url = if params.value == "null" || params.value.is_empty() {
+                    config.session.start_url = if params.value == "null" || params.value.is_empty()
+                    {
                         None
                     } else {
                         Some(params.value.clone())
@@ -458,11 +449,15 @@ impl BrowserServiceRunner {
                     config.session.user_agent = params.value.clone();
                 }
                 "session.timeout_secs" => {
-                    config.session.timeout_secs = params.value.parse()
+                    config.session.timeout_secs = params
+                        .value
+                        .parse()
                         .context("timeout_secs must be an integer")?;
                 }
                 "session.max_redirects" => {
-                    config.session.max_redirects = params.value.parse()
+                    config.session.max_redirects = params
+                        .value
+                        .parse()
                         .context("max_redirects must be an integer")?;
                 }
                 "session.persistence" => {
@@ -473,22 +468,34 @@ impl BrowserServiceRunner {
                     };
                 }
                 "session.defaults.max_tokens" => {
-                    config.session.defaults.max_tokens = if params.value == "null" || params.value.is_empty() {
-                        None
-                    } else {
-                        Some(params.value.parse().context("max_tokens must be an integer")?)
-                    };
+                    config.session.defaults.max_tokens =
+                        if params.value == "null" || params.value.is_empty() {
+                            None
+                        } else {
+                            Some(
+                                params
+                                    .value
+                                    .parse()
+                                    .context("max_tokens must be an integer")?,
+                            )
+                        };
                 }
                 "session.defaults.strip_nav" => {
-                    config.session.defaults.strip_nav = params.value.parse()
+                    config.session.defaults.strip_nav = params
+                        .value
+                        .parse()
                         .context("strip_nav must be true or false")?;
                 }
                 "session.defaults.include_links" => {
-                    config.session.defaults.include_links = params.value.parse()
+                    config.session.defaults.include_links = params
+                        .value
+                        .parse()
                         .context("include_links must be true or false")?;
                 }
                 "session.defaults.include_images" => {
-                    config.session.defaults.include_images = params.value.parse()
+                    config.session.defaults.include_images = params
+                        .value
+                        .parse()
                         .context("include_images must be true or false")?;
                 }
                 "search.engine" => {
@@ -501,21 +508,28 @@ impl BrowserServiceRunner {
                     );
                 }
             }
-            Ok(format!("Set {key} = {value}", key = params.key, value = params.value))
+            Ok(format!(
+                "Set {key} = {value}",
+                key = params.key,
+                value = params.value
+            ))
         })
     }
 
     fn dispatch_config_auth_set(&mut self, params: ConfigAuthSetParams) -> Result<String> {
         self.mutate_config(|config| {
             let name = params.name;
-            config.auth.insert(name.clone(), AuthProfileConfig {
-                header: params.header,
-                value: params.value,
-                value_env: params.value_env,
-                value_prefix: params.value_prefix,
-                domains: params.domains,
-                resolved_value: None,
-            });
+            config.auth.insert(
+                name.clone(),
+                AuthProfileConfig {
+                    header: params.header,
+                    value: params.value,
+                    value_env: params.value_env,
+                    value_prefix: params.value_prefix,
+                    domains: params.domains,
+                    resolved_value: None,
+                },
+            );
             Ok(format!("Auth profile '{name}' saved"))
         })
     }
@@ -534,7 +548,9 @@ impl BrowserServiceRunner {
         let label = format!("{}@{}", params.name, params.domain);
         self.mutate_config(|config| {
             // Remove existing entry with same name+domain
-            config.cookies.retain(|c| !(c.name == params.name && c.domain == params.domain));
+            config
+                .cookies
+                .retain(|c| !(c.name == params.name && c.domain == params.domain));
             config.cookies.push(CookieConfig {
                 name: params.name,
                 value: params.value,
@@ -550,14 +566,26 @@ impl BrowserServiceRunner {
         })
     }
 
-    fn dispatch_config_cookie_delete(&mut self, params: ConfigCookieDeleteParams) -> Result<String> {
+    fn dispatch_config_cookie_delete(
+        &mut self,
+        params: ConfigCookieDeleteParams,
+    ) -> Result<String> {
         self.mutate_config(|config| {
             let before = config.cookies.len();
-            config.cookies.retain(|c| !(c.name == params.name && c.domain == params.domain));
+            config
+                .cookies
+                .retain(|c| !(c.name == params.name && c.domain == params.domain));
             if config.cookies.len() < before {
-                Ok(format!("Cookie config '{}@{}' deleted", params.name, params.domain))
+                Ok(format!(
+                    "Cookie config '{}@{}' deleted",
+                    params.name, params.domain
+                ))
             } else {
-                anyhow::bail!("cookie config '{}@{}' not found", params.name, params.domain)
+                anyhow::bail!(
+                    "cookie config '{}@{}' not found",
+                    params.name,
+                    params.domain
+                )
             }
         })
     }
@@ -566,7 +594,9 @@ impl BrowserServiceRunner {
         let label = format!("{}:{}", params.origin, params.key);
         self.mutate_config(|config| {
             // Remove existing entry with same origin+key
-            config.storage.retain(|s| !(s.origin == params.origin && s.key == params.key));
+            config
+                .storage
+                .retain(|s| !(s.origin == params.origin && s.key == params.key));
             config.storage.push(StorageConfig {
                 origin: params.origin,
                 key: params.key,
@@ -579,14 +609,26 @@ impl BrowserServiceRunner {
         })
     }
 
-    fn dispatch_config_storage_delete(&mut self, params: ConfigStorageDeleteParams) -> Result<String> {
+    fn dispatch_config_storage_delete(
+        &mut self,
+        params: ConfigStorageDeleteParams,
+    ) -> Result<String> {
         self.mutate_config(|config| {
             let before = config.storage.len();
-            config.storage.retain(|s| !(s.origin == params.origin && s.key == params.key));
+            config
+                .storage
+                .retain(|s| !(s.origin == params.origin && s.key == params.key));
             if config.storage.len() < before {
-                Ok(format!("Storage config '{}:{}' deleted", params.origin, params.key))
+                Ok(format!(
+                    "Storage config '{}:{}' deleted",
+                    params.origin, params.key
+                ))
             } else {
-                anyhow::bail!("storage config '{}:{}' not found", params.origin, params.key)
+                anyhow::bail!(
+                    "storage config '{}:{}' not found",
+                    params.origin,
+                    params.key
+                )
             }
         })
     }
@@ -604,12 +646,18 @@ impl BrowserServiceRunner {
         })
     }
 
-    fn dispatch_config_header_delete(&mut self, params: ConfigHeaderDeleteParams) -> Result<String> {
+    fn dispatch_config_header_delete(
+        &mut self,
+        params: ConfigHeaderDeleteParams,
+    ) -> Result<String> {
         self.mutate_config(|config| {
             let before = config.headers.len();
             config.headers.retain(|h| h.domains != params.domains);
             if config.headers.len() < before {
-                Ok(format!("Header rule for [{}] deleted", params.domains.join(", ")))
+                Ok(format!(
+                    "Header rule for [{}] deleted",
+                    params.domains.join(", ")
+                ))
             } else {
                 anyhow::bail!("header rule for [{}] not found", params.domains.join(", "))
             }
@@ -645,10 +693,8 @@ pub async fn send_cmd<T>(
     let (resp_tx, resp_rx) = oneshot::channel();
     tx.send(f(resp_tx))
         .await
-        .map_err(|_| {
-            rmcp::ErrorData::internal_error("browser service channel closed", None)
-        })?;
-    resp_rx.await.map_err(|_| {
-        rmcp::ErrorData::internal_error("browser service response dropped", None)
-    })
+        .map_err(|_| rmcp::ErrorData::internal_error("browser service channel closed", None))?;
+    resp_rx
+        .await
+        .map_err(|_| rmcp::ErrorData::internal_error("browser service response dropped", None))
 }

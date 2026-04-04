@@ -18,8 +18,8 @@ pub fn query_selector(
 ) -> Result<DomSelectorResult, QueryError> {
     let start = Instant::now();
 
-    let compiled = Selector::parse(selector)
-        .map_err(|_| QueryError::InvalidSelector(selector.to_string()))?;
+    let compiled =
+        Selector::parse(selector).map_err(|_| QueryError::InvalidSelector(selector.to_string()))?;
 
     let document = Html::parse_document(html);
     let mut results: Vec<serde_json::Value> = Vec::new();
@@ -30,9 +30,7 @@ pub fn query_selector(
                 let text: String = element.text().collect();
                 serde_json::Value::String(text)
             }
-            "innerHTML" => {
-                serde_json::Value::String(element.inner_html())
-            }
+            "innerHTML" => serde_json::Value::String(element.inner_html()),
             other => match element.value().attr(other) {
                 Some(v) => serde_json::Value::String(v.to_string()),
                 None => serde_json::Value::Null,

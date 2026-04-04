@@ -130,8 +130,8 @@ pub fn parse_form(html: &str, form_selector: &str) -> Result<ParsedForm, FormErr
 /// Validate that a CSS selector matches an input, textarea, or select element
 /// in a pre-parsed HTML document. Returns the field's `name` attribute.
 pub fn validate_field_selector(document: &Html, selector: &str) -> Result<String, FormError> {
-    let sel = Selector::parse(selector)
-        .map_err(|_| FormError::InvalidSelector(selector.to_string()))?;
+    let sel =
+        Selector::parse(selector).map_err(|_| FormError::InvalidSelector(selector.to_string()))?;
 
     let element = document
         .select(&sel)

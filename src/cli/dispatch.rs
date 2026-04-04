@@ -226,10 +226,7 @@ impl<'a> CommandProcessor<'a> {
     }
 }
 
-async fn dispatch(
-    service: &mut BrowserService,
-    cmd: &CommandEnvelope,
-) -> ResultEnvelope {
+async fn dispatch(service: &mut BrowserService, cmd: &CommandEnvelope) -> ResultEnvelope {
     let id = cmd.id.clone();
     let seq = cmd.seq;
 
@@ -396,11 +393,7 @@ fn dispatch_cookies(
     seq: u64,
     action: &CookiesAction,
 ) -> ResultEnvelope {
-    wrap_result(
-        id.into(),
-        seq,
-        service.cookies(action.domain.as_deref()),
-    )
+    wrap_result(id.into(), seq, service.cookies(action.domain.as_deref()))
 }
 
 fn dispatch_set_cookie(
@@ -502,11 +495,7 @@ fn dispatch_storage_clear(
     )
 }
 
-fn wrap_result<T: Serialize>(
-    id: String,
-    seq: u64,
-    result: anyhow::Result<T>,
-) -> ResultEnvelope {
+fn wrap_result<T: Serialize>(id: String, seq: u64, result: anyhow::Result<T>) -> ResultEnvelope {
     match result {
         Ok(data) => ResultEnvelope::success(id.clone(), seq, &data).unwrap_or_else(|e| {
             ResultEnvelope::error(id, seq, ErrorCode::SessionError, e.to_string())

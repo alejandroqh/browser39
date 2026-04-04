@@ -163,6 +163,8 @@ pub struct DomScriptResult {
     pub exec_ms: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pending_navigation: Option<PendingNavigation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub console_output: Option<Vec<String>>,
 }
 
 /// A navigation action requested by JS code (form.submit(), element.click()).
@@ -317,7 +319,8 @@ mod tests {
             url: "https://example.com".into(),
             title: Some("Example Domain".into()),
             status: 200,
-            markdown: "# Example Domain\n\nThis domain is for use in illustrative examples...".into(),
+            markdown: "# Example Domain\n\nThis domain is for use in illustrative examples..."
+                .into(),
             links: Some(vec![Link {
                 i: 0,
                 text: "More information".into(),
@@ -420,11 +423,7 @@ mod tests {
 
     #[test]
     fn test_fetch_mode_precedence_url_wins() {
-        let mode = FetchMode::resolve(
-            Some("https://example.com"),
-            Some(3),
-            Some("click me"),
-        );
+        let mode = FetchMode::resolve(Some("https://example.com"), Some(3), Some("click me"));
         assert_eq!(mode, Some(FetchMode::Url("https://example.com".into())));
     }
 
@@ -448,7 +447,10 @@ mod tests {
 
     #[test]
     fn test_http_method_serialization() {
-        assert_eq!(serde_json::to_string(&HttpMethod::Post).unwrap(), "\"POST\"");
+        assert_eq!(
+            serde_json::to_string(&HttpMethod::Post).unwrap(),
+            "\"POST\""
+        );
         assert_eq!(serde_json::to_string(&HttpMethod::Get).unwrap(), "\"GET\"");
 
         let method: HttpMethod = serde_json::from_str("\"GET\"").unwrap();

@@ -7,11 +7,7 @@ use anyhow::{Context, Result};
 use crate::cli::dispatch::{CommandProcessor, ProcessResult};
 use crate::service::service::BrowserService;
 
-pub async fn run_batch(
-    service: &mut BrowserService,
-    input: &Path,
-    output: &Path,
-) -> Result<()> {
+pub async fn run_batch(service: &mut BrowserService, input: &Path, output: &Path) -> Result<()> {
     let file = File::open(input)
         .with_context(|| format!("failed to open input file: {}", input.display()))?;
     let reader = BufReader::new(file);
@@ -45,7 +41,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -70,7 +69,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -96,7 +98,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -125,7 +130,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -145,18 +153,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_batch_empty_lines_skipped() {
-        let input = write_commands(&[
-            "",
-            r#"{"id":"a","action":"info","v":1,"seq":1}"#,
-            "",
-            "",
-        ]);
+        let input = write_commands(&["", r#"{"id":"a","action":"info","v":1,"seq":1}"#, "", ""]);
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().to_path_buf();
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -175,7 +181,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -195,7 +204,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -215,7 +227,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -239,7 +254,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         let start = std::time::Instant::now();
         run_batch(&mut service, input.path(), &output_path)
@@ -269,7 +287,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         let start = std::time::Instant::now();
         run_batch(&mut service, input.path(), &output_path)
@@ -294,7 +315,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -308,15 +332,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_batch_fill_missing_fields() {
-        let input = write_commands(&[
-            r##"{"id":"a","action":"fill","v":1,"seq":1}"##,
-        ]);
+        let input = write_commands(&[r##"{"id":"a","action":"fill","v":1,"seq":1}"##]);
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().to_path_buf();
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -338,7 +363,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -352,15 +380,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_batch_config_no_delay_on_config_itself() {
-        let input = write_commands(&[
-            r#"{"id":"cfg","action":"config","v":1,"seq":0,"step_delay":10}"#,
-        ]);
+        let input =
+            write_commands(&[r#"{"id":"cfg","action":"config","v":1,"seq":0,"step_delay":10}"#]);
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().to_path_buf();
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         let start = std::time::Instant::now();
         run_batch(&mut service, input.path(), &output_path)
@@ -392,7 +422,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -442,7 +475,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -481,7 +517,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -557,7 +596,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -589,7 +631,10 @@ mod tests {
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -604,15 +649,17 @@ mod tests {
     #[tokio::test]
     async fn test_batch_storage_no_origin_no_page() {
         // When no origin is provided and no page is loaded, should error
-        let input = write_commands(&[
-            r#"{"id":"g1","action":"storage_get","v":1,"seq":1,"key":"test"}"#,
-        ]);
+        let input =
+            write_commands(&[r#"{"id":"g1","action":"storage_get","v":1,"seq":1,"key":"test"}"#]);
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().to_path_buf();
         drop(output);
 
         let config = Config::default();
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await
@@ -646,7 +693,10 @@ mod tests {
         let output_path = output.path().to_path_buf();
         drop(output);
 
-        let mut service = BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore)).await.unwrap();
+        let mut service =
+            BrowserService::new(config, Box::new(crate::core::session_store::InMemoryStore))
+                .await
+                .unwrap();
 
         run_batch(&mut service, input.path(), &output_path)
             .await

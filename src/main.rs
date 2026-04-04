@@ -64,7 +64,14 @@ async fn main() {
                 options.compact_links = true;
             }
             let result = match service
-                .fetch(&url, &HttpMethod::Get, &HashMap::new(), None, None, &options)
+                .fetch(
+                    &url,
+                    &HttpMethod::Get,
+                    &HashMap::new(),
+                    None,
+                    None,
+                    &options,
+                )
                 .await
             {
                 Ok(r) => r,
