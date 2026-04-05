@@ -139,7 +139,7 @@ browser39 minimizes token usage when feeding web content to LLMs:
 
 ### JavaScript execution
 
-boa_engine runs JavaScript against a full DOM environment — not just `querySelector`, but the APIs scripts actually need:
+boa_engine runs JavaScript against a full DOM environment:
 
 - **Traversal**: `parentElement`, `children`, `firstChild`, `lastChild`, `nextSibling`, `previousSibling`, `closest()`, `matches()`, `contains()`
 - **Lookup**: `getElementById`, `getElementsByClassName`, `getElementsByTagName`, `getElementsByName`
