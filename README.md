@@ -15,7 +15,7 @@ browser39 fetches web pages and converts them to token-optimized Markdown that L
 |  | browser39 | Playwright / Puppeteer | Raw HTTP (requests, ureq) |
 |--|-----------|----------------------|---------------------------|
 | External browser | None (single binary) | Requires Chrome/Chromium | None |
-| Binary size | ~22MB | ~280MB with browser | N/A (library) |
+| Binary size | ~52MB | ~280MB with browser | N/A (library) |
 | Platforms | macOS, Linux, Windows | macOS, Linux, Windows | Any |
 | JavaScript | Yes (V8 via deno_core) | Yes (full V8) | No |
 | HTML to Markdown | Built-in, token-optimized | No (raw HTML or screenshots) | DIY |
