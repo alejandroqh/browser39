@@ -180,6 +180,7 @@ pub enum PendingNavigation {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct InfoResult {
+    pub version: String,
     pub alive: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub current_url: Option<String>,
@@ -468,6 +469,7 @@ mod tests {
     #[test]
     fn test_info_result_roundtrip() {
         let info = InfoResult {
+            version: "1.6.0".into(),
             alive: true,
             current_url: Some("https://example.com".into()),
             title: Some("Example".into()),

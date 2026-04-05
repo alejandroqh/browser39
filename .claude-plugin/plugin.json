@@ -1,6 +1,6 @@
 {
   "name": "browser39",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Headless web browser for AI agents. Converts HTML to token-optimized markdown with JavaScript support, form filling, cookie/storage management, and web search.",
   "author": "browser39",
   "components": {

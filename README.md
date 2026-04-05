@@ -17,7 +17,7 @@ browser39 fetches web pages and converts them to token-optimized Markdown that L
 | External browser | None (single binary) | Requires Chrome/Chromium | None |
 | Binary size | ~22MB | ~280MB with browser | N/A (library) |
 | Platforms | macOS, Linux, Windows | macOS, Linux, Windows | Any |
-| JavaScript | Yes (boa_engine) | Yes (full V8) | No |
+| JavaScript | Yes (V8 via deno_core) | Yes (full V8) | No |
 | HTML to Markdown | Built-in, token-optimized | No (raw HTML or screenshots) | DIY |
 | Token preselection | Content sections, agent picks what to read | No | No |
 | Cookies & sessions | Automatic, persisted, encrypted | Manual | Manual |
@@ -62,6 +62,18 @@ Copy and paste into your agent to install browser39 automatically:
 **OpenClaw**
 
 > Install the browser39 plugin: openclaw plugins install https://github.com/alejandroqh/browser39.git && openclaw gateway restart
+
+### Auto-update prompts
+
+Copy and paste into your agent to update browser39 to the latest version:
+
+**Claude Code**
+
+> Update browser39 to the latest version. Download the latest binary for this system from https://github.com/alejandroqh/browser39/releases/latest/download/ — assets are named browser39-{os}-{arch} (macos-arm64, macos-x64, linux-arm64, linux-x64, windows-x64.exe). Replace the existing binary at ~/.local/bin/browser39 and make it executable. Then restart the MCP server.
+
+**OpenClaw**
+
+> Update the browser39 plugin: openclaw plugins update https://github.com/alejandroqh/browser39.git && openclaw gateway restart
 
 ## Quick Start
 
@@ -139,7 +151,7 @@ browser39 minimizes token usage when feeding web content to LLMs:
 
 ### JavaScript execution
 
-boa_engine runs JavaScript against a full DOM environment:
+V8 (via deno_core) runs JavaScript against a full DOM environment:
 
 - **Traversal**: `parentElement`, `children`, `firstChild`, `lastChild`, `nextSibling`, `previousSibling`, `closest()`, `matches()`, `contains()`
 - **Lookup**: `getElementById`, `getElementsByClassName`, `getElementsByTagName`, `getElementsByName`

@@ -634,6 +634,7 @@ impl BrowserService {
         };
 
         InfoResult {
+            version: env!("CARGO_PKG_VERSION").to_string(),
             alive: true,
             current_url,
             title,

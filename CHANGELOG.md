@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.0] - 2026-04-05
+
+### Changed
+
+- **JavaScript engine migrated from boa_engine to deno_core (V8)** — full ECMAScript compliance, JIT compilation, and the foundation for SPA support (React/Vue/Angular)
+- DOM shim architecture redesigned: Rust `#[op2]` ops for data access + JS bootstrap for object wrappers (replaced 3,650 lines of boa closures with ~970 lines of ops + ~300 lines of JS)
+- Event handler and setTimeout errors are now logged to `console_output` instead of silently swallowed
+- `serde_v8` used for V8-to-JSON conversion (replaces hand-rolled converter)
+
 ## [1.5.0] - 2026-04-04
 
 ### Added
