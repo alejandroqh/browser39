@@ -35,7 +35,9 @@ clap = { version = "4", features = ["derive"] }
 rand = "0.9"
 regex = "1"
 notify = "7"
-boa_engine = "0.20"
+deno_core = "=0.340.0"
+deno_error = "0.5"
+serde_v8 = "=0.249.0"
 html5ever = "0.39"
 form_urlencoded = "1"
 rmcp = { version = "1", features = ["server", "transport-io", "transport-streamable-http-server", "macros"] }
