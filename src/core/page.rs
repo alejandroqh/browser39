@@ -469,7 +469,7 @@ mod tests {
     #[test]
     fn test_info_result_roundtrip() {
         let info = InfoResult {
-            version: "1.6.0".into(),
+            version: "1.6.1".into(),
             alive: true,
             current_url: Some("https://example.com".into()),
             title: Some("Example".into()),

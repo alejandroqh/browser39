@@ -1,0 +1,13 @@
+{
+  "name": "@aquintanar/browser39-darwin-arm64",
+  "version": "1.6.1",
+  "description": "browser39 binary for macOS ARM64 (Apple Silicon)",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alejandroqh/browser39"
+  },
+  "os": ["darwin"],
+  "cpu": ["arm64"],
+  "files": ["bin/browser39"]
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@aquintanar/browser39",
+  "version": "1.6.1",
+  "description": "A headless web browser for AI agents. Converts pages to token-optimized Markdown. Single binary, no external browser.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alejandroqh/browser39"
+  },
+  "homepage": "https://github.com/alejandroqh/browser39",
+  "keywords": ["browser", "ai", "mcp", "headless", "markdown", "agent"],
+  "main": "index.js",
+  "types": "index.d.ts",
+  "bin": {
+    "browser39": "bin.js"
+  },
+  "files": ["index.js", "index.d.ts", "bin.js", "README.md"],
+  "optionalDependencies": {
+    "@aquintanar/browser39-darwin-arm64": "1.6.1",
+    "@aquintanar/browser39-darwin-x64": "1.6.1",
+    "@aquintanar/browser39-linux-x64": "1.6.1",
+    "@aquintanar/browser39-linux-arm64": "1.6.1",
+    "@aquintanar/browser39-win32-x64": "1.6.1"
+  }
+}

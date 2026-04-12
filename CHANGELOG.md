@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.1] - 2026-04-12
+
+### Added
+
+- **npm distribution** — `npm install @aquintanar/browser39` installs the correct platform binary automatically. Supports macOS (arm64, x64), Linux (x64, arm64), and Windows (x64).
+
+### Fixed
+
+- Removed unused `SEL_HEAD` static (dead code warning)
+- Updated yanked `fastrand` v2.4.0 to v2.4.1
+
 ## [1.6.0] - 2026-04-05
 
 ### Changed

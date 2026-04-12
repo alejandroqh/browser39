@@ -1,0 +1,13 @@
+{
+  "name": "@aquintanar/browser39-linux-arm64",
+  "version": "1.6.1",
+  "description": "browser39 binary for Linux ARM64",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alejandroqh/browser39"
+  },
+  "os": ["linux"],
+  "cpu": ["arm64"],
+  "files": ["bin/browser39"]
+}

@@ -1,6 +1,6 @@
 [package]
 name = "browser39"
-version = "1.6.0"
+version = "1.6.1"
 edition = "2024"
 description = "A headless web browser for AI agents. Converts pages to token-optimized Markdown locally. Single binary, no external browser."
 license = "Apache-2.0"

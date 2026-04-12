@@ -14,7 +14,6 @@ pub(crate) static SEL_TITLE: LazyLock<Selector> =
     LazyLock::new(|| Selector::parse("title").unwrap());
 pub(crate) static SEL_HTML: LazyLock<Selector> = LazyLock::new(|| Selector::parse("html").unwrap());
 pub(crate) static SEL_BODY: LazyLock<Selector> = LazyLock::new(|| Selector::parse("body").unwrap());
-pub(crate) static SEL_HEAD: LazyLock<Selector> = LazyLock::new(|| Selector::parse("head").unwrap());
 static SEL_META: LazyLock<Selector> = LazyLock::new(|| Selector::parse("meta").unwrap());
 static SEL_LINKS: LazyLock<Selector> = LazyLock::new(|| Selector::parse("a[href]").unwrap());
 static SEL_IMG: LazyLock<Selector> = LazyLock::new(|| Selector::parse("img").unwrap());

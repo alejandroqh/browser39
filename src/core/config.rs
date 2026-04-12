@@ -425,7 +425,7 @@ mod tests {
         let toml = r##"
 [session]
 start_url = "https://dashboard.example.com"
-user_agent = "browser39/1.6.0"
+user_agent = "browser39/1.6.1"
 timeout_secs = 30
 max_redirects = 10
 
