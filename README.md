@@ -61,7 +61,7 @@ Copy and paste into your agent to install browser39 automatically:
 
 **OpenClaw**
 
-> Install the browser39 plugin: openclaw plugins install https://github.com/alejandroqh/browser39.git && openclaw gateway restart
+> Install the browser39 plugin: openclaw plugins install browser39 --marketplace https://github.com/alejandroqh/openclaw-marketplace --dangerously-force-unsafe-install && openclaw gateway restart
 
 ### Auto-update prompts
 
@@ -73,7 +73,7 @@ Copy and paste into your agent to update browser39 to the latest version:
 
 **OpenClaw**
 
-> Update the browser39 plugin: openclaw plugins update https://github.com/alejandroqh/browser39.git && openclaw gateway restart
+> Update the browser39 plugin: openclaw plugins update browser39 && openclaw gateway restart
 
 ## Quick Start
 
@@ -99,7 +99,7 @@ See [docs/install-claude.md](docs/install-claude.md) for the full guide.
 ### OpenClaw
 
 ```bash
-openclaw plugins install https://github.com/alejandroqh/browser39.git
+openclaw plugins install browser39 --marketplace https://github.com/alejandroqh/openclaw-marketplace --dangerously-force-unsafe-install
 openclaw gateway restart
 ```
 
@@ -273,7 +273,7 @@ Or manually in `.mcp.json`:
 Makes browser39 installable via `openclaw plugins install` as a Claude bundle. Maps MCP server config from `.mcp.json`.
 
 ```bash
-openclaw plugins install git@github.com:alejandroqh/browser39.git
+openclaw plugins install browser39 --marketplace https://github.com/alejandroqh/openclaw-marketplace --dangerously-force-unsafe-install
 ```
 
 ### OpenClaw Native Plugin (`openclaw-plugin/`)
