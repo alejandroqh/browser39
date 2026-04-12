@@ -239,6 +239,52 @@ Precedence: `--config` flag > `BROWSER39_CONFIG` env > `~/.config/browser39/conf
 
 See [docs/config.md](docs/config.md) for the full reference.
 
+## Plugin Integration
+
+### Claude Code
+
+Install the binary from GitHub:
+
+```bash
+cargo install browser39
+```
+
+Then add it as an MCP server:
+
+```bash
+claude mcp add browser39 browser39 -- mcp
+```
+
+Or manually in `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "browser39": {
+      "command": "browser39",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Claude Bundle (`.claude-plugin/`)
+
+Makes browser39 installable via `openclaw plugins install` as a Claude bundle. Maps MCP server config from `.mcp.json`.
+
+```bash
+openclaw plugins install git@github.com:alejandroqh/browser39.git
+```
+
+### OpenClaw Native Plugin (`openclaw-plugin/`)
+
+Full OpenClaw native plugin with typed tool proxies, config schema, and automatic MCP lifecycle management. Configurable options:
+
+| Option | Description |
+|---|---|
+| `binaryPath` | Path to the browser39 binary (default: `browser39` in PATH) |
+| `configPath` | Path to browser39 config.toml file |
+
 ## Documentation
 
 | Doc | Description |

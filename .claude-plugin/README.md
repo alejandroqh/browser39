@@ -5,11 +5,7 @@ This directory makes browser39 installable as an OpenClaw **Claude bundle**.
 ## Install
 
 ```bash
-# From local directory
-openclaw plugins install ./path/to/browser39
-
-# Or from archive
-openclaw plugins install ./browser39.tgz
+openclaw plugins install git@github.com:alejandroqh/browser39.git
 ```
 
 ## What it provides
