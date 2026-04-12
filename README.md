@@ -46,6 +46,12 @@ browser39 returns the exact section in **196 tokens** at zero cost. The raw appr
 ## Install
 
 ```bash
+npm install @aquintanar/browser39
+```
+
+Or via Cargo:
+
+```bash
 cargo install browser39
 ```
 
