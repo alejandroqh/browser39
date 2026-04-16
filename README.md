@@ -239,7 +239,7 @@ cargo fmt                # Format
 
 ## Contributors
 
-@nathan-widjaja
+[@nathan-widjaja](https://github.com/nathan-widjaja)
 
 ## License
 
