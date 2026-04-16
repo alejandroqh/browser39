@@ -8,8 +8,6 @@ A headless open source web browser for AI agents. Converts pages to token-optimi
 
 browser39 fetches web pages and converts them to token-optimized Markdown that LLMs can actually consume. It runs JavaScript, manages cookies and sessions, queries the DOM, and fills forms. All processing happens locally, no data is sent to third-party services.
 
-**Works with:** [Claude Desktop & Claude Code](docs/install-claude.md) | [OpenClaw](docs/install-openclaw.md) | [Any agent via CLI](docs/install-cli.md)
-
 ## Comparison
 
 |  | browser39 | Playwright / Puppeteer | Raw HTTP (requests, ureq) |
@@ -55,37 +53,21 @@ Or via Cargo:
 cargo install browser39
 ```
 
+### Install for any AI CLI / IDE
+
+Installs the binary and auto-configures it for every MCP client detected — **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **OpenClaw**:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/alejandroqh/marketplace/main/h39.sh | sh
+```
+
 Pre-built binaries available on the [releases page](https://github.com/alejandroqh/browser39/releases).
-
-### Auto-install prompts
-
-Copy and paste into your agent to install browser39 automatically:
-
-**Claude Code**
-
-> Install browser39 as an MCP server. Download the binary for this system from https://github.com/alejandroqh/browser39/releases/latest/download/ — assets are named browser39-{os}-{arch} (macos-arm64, macos-x64, linux-arm64, linux-x64, windows-x64.exe). Save to ~/.local/bin/browser39, make it executable, and add it to MCP settings with command "browser39" and args ["mcp"].
-
-**OpenClaw**
-
-> Install the browser39 plugin: openclaw plugins install browser39 --marketplace https://github.com/alejandroqh/openclaw-marketplace --dangerously-force-unsafe-install && openclaw gateway restart
-
-### Auto-update prompts
-
-Copy and paste into your agent to update browser39 to the latest version:
-
-**Claude Code**
-
-> Update browser39 to the latest version. Download the latest binary for this system from https://github.com/alejandroqh/browser39/releases/latest/download/ — assets are named browser39-{os}-{arch} (macos-arm64, macos-x64, linux-arm64, linux-x64, windows-x64.exe). Replace the existing binary at ~/.local/bin/browser39 and make it executable. Then restart the MCP server.
-
-**OpenClaw**
-
-> Update the browser39 plugin: openclaw plugins update browser39 && openclaw gateway restart
 
 ## Quick Start
 
-### Claude Desktop / Claude Code (MCP)
+### MCP config
 
-Add to your MCP settings:
+Add to your MCP client config:
 
 ```json
 {
@@ -99,17 +81,6 @@ Add to your MCP settings:
 ```
 
 29 tools available instantly: `browser39_fetch`, `browser39_click`, `browser39_links`, `browser39_dom_query`, `browser39_fill`, `browser39_submit`, `browser39_search`, cookies, storage, history, config management, and more.
-
-See [docs/install-claude.md](docs/install-claude.md) for the full guide.
-
-### OpenClaw
-
-```bash
-openclaw plugins install browser39 --marketplace https://github.com/alejandroqh/openclaw-marketplace --dangerously-force-unsafe-install
-openclaw gateway restart
-```
-
-See [docs/install-openclaw.md](docs/install-openclaw.md) for bundle vs native plugin setup.
 
 ### CLI: one-shot fetch
 
@@ -229,7 +200,7 @@ Auth profile 'github' saved
 
 | Transport | Command | Use case |
 |-----------|---------|----------|
-| MCP (stdio) | `browser39 mcp` | Claude Desktop, Claude Code, local MCP clients |
+| MCP (stdio) | `browser39 mcp` | Local MCP clients |
 | MCP (HTTP) | `browser39 mcp --transport sse --port 8039` | Remote agents, cloud deployments |
 | JSONL watch | `browser39 watch commands.jsonl` | Any language, long-running agent IPC |
 | JSONL batch | `browser39 batch commands.jsonl` | One-shot scripted operations |
@@ -245,58 +216,10 @@ Precedence: `--config` flag > `BROWSER39_CONFIG` env > `~/.config/browser39/conf
 
 See [docs/config.md](docs/config.md) for the full reference.
 
-## Plugin Integration
-
-### Claude Code
-
-Install the binary from GitHub:
-
-```bash
-cargo install browser39
-```
-
-Then add it as an MCP server:
-
-```bash
-claude mcp add browser39 browser39 -- mcp
-```
-
-Or manually in `.mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "browser39": {
-      "command": "browser39",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-### Claude Bundle (`.claude-plugin/`)
-
-Makes browser39 installable via `openclaw plugins install` as a Claude bundle. Maps MCP server config from `.mcp.json`.
-
-```bash
-openclaw plugins install browser39 --marketplace https://github.com/alejandroqh/openclaw-marketplace --dangerously-force-unsafe-install
-```
-
-### OpenClaw Native Plugin (`openclaw-plugin/`)
-
-Full OpenClaw native plugin with typed tool proxies, config schema, and automatic MCP lifecycle management. Configurable options:
-
-| Option | Description |
-|---|---|
-| `binaryPath` | Path to the browser39 binary (default: `browser39` in PATH) |
-| `configPath` | Path to browser39 config.toml file |
-
 ## Documentation
 
 | Doc | Description |
 |-----|-------------|
-| [install-claude.md](docs/install-claude.md) | Claude Desktop and Claude Code setup |
-| [install-openclaw.md](docs/install-openclaw.md) | OpenClaw bundle and native plugin |
 | [install-cli.md](docs/install-cli.md) | CLI integration guide with Rust, Python, TypeScript examples |
 | [jsonl-protocol.md](docs/jsonl-protocol.md) | Full JSONL protocol specification |
 | [config.md](docs/config.md) | Configuration reference |
