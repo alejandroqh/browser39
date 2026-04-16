@@ -1,18 +1,38 @@
 [package]
 name = "browser39"
-version = "1.6.1"
+version = "1.6.2"
 edition = "2024"
-description = "A headless web browser for AI agents. Converts pages to token-optimized Markdown locally. Single binary, no external browser."
+description = "Headless web browser for AI agents"
+authors = ["Alejandro Quintanar"]
 license = "Apache-2.0"
 repository = "https://github.com/alejandroqh/browser39"
 homepage = "https://github.com/alejandroqh/browser39"
 readme = "README.md"
 keywords = ["browser", "ai", "mcp", "headless", "markdown"]
 categories = ["command-line-utilities", "web-programming"]
+exclude = [
+    "dist/",
+    "target/",
+    ".claude/",
+    ".claude-plugin/",
+    "openclaw-plugin/",
+    "CLAUDE.md",
+    ".mcp.json",
+    ".DS_Store",
+    "build.sh",
+    "benchmark.sh",
+    "bench/",
+]
 
 [[bin]]
 name = "browser39"
 path = "src/main.rs"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
