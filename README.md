@@ -237,6 +237,10 @@ cargo clippy             # Lint
 cargo fmt                # Format
 ```
 
+## Contributors
+
+@nathan-widjaja
+
 ## License
 
 Apache-2.0
