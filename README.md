@@ -4,7 +4,7 @@
 
 # browser39
 
-A headless browser for AI agents that fetches modern web pages, runs JavaScript, manages sessions, and returns token-efficient Markdown your agent can actually use.
+A headless browser for AI agents that fetches modern web pages, runs JavaScript, manages sessions, and returns token-efficient Markdown.
 
 - **Handles modern sites.** Executes JavaScript, fills forms, queries the DOM, persists cookies and sessions across runs.
 - **LLM-usable output.** Compact Markdown with content preselection, so the agent reads the section it needs, not the whole page.
