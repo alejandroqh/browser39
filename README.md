@@ -4,9 +4,12 @@
 
 # browser39
 
-A headless open source web browser for AI agents. Converts pages to token-optimized Markdown locally. Single binary, no external browser, no fees.
+A headless browser for AI agents that fetches modern web pages, runs JavaScript, manages sessions, and returns token-efficient Markdown your agent can actually use.
 
-browser39 fetches web pages and converts them to token-optimized Markdown that LLMs can actually consume. It runs JavaScript, manages cookies and sessions, queries the DOM, and fills forms. All processing happens locally, no data is sent to third-party services.
+- **Handles modern sites.** Executes JavaScript, fills forms, queries the DOM, persists cookies and sessions across runs.
+- **LLM-usable output.** Compact Markdown with content preselection, so the agent reads the section it needs, not the whole page.
+- **Local-only.** No data sent to third-party services.
+- **Single binary.** No Chrome, no Puppeteer. ~52MB. macOS, Linux, Windows.
 
 ## Comparison
 
@@ -181,7 +184,7 @@ domains = ["api.github.com"]
 
 ### Config management via MCP
 
-Agents can manage browser39's configuration directly through MCP tools — change the search engine, store credentials, manage auth profiles, cookies, storage, and headers. Sensitive values are stored securely on disk but **never returned** via MCP; `config_show` masks them with `••••••`.
+Agents can manage browser39's configuration directly through MCP tools: change the search engine, store credentials, manage auth profiles, cookies, storage, and headers. Sensitive values are stored securely on disk but **never returned** via MCP; `config_show` masks them with `••••••`.
 
 ```
 > browser39_config_set key="search.engine" value="https://www.google.com/search?q={}"
@@ -233,3 +236,7 @@ cargo test               # Run all tests
 cargo clippy             # Lint
 cargo fmt                # Format
 ```
+
+## License
+
+Apache-2.0
