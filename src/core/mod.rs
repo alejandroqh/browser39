@@ -3,6 +3,7 @@ pub mod config;
 pub mod dom_query;
 pub mod dom_script;
 pub mod error;
+pub mod feed_to_md;
 pub mod form;
 pub mod html_to_md;
 pub mod http_client;

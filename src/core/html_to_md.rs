@@ -40,7 +40,7 @@ static CONTENT_SELECTORS: LazyLock<Vec<(&str, Selector)>> = LazyLock::new(|| {
 const SELECTOR_MIN_TOKENS: u64 = 500;
 
 /// Estimate token count from byte length (4 bytes per token heuristic).
-fn estimate_tokens(byte_len: usize) -> u64 {
+pub(crate) fn estimate_tokens(byte_len: usize) -> u64 {
     (byte_len as u64) / 4
 }
 
@@ -949,7 +949,11 @@ fn floor_char_boundary(s: &str, pos: usize) -> usize {
     i
 }
 
-fn truncate_markdown(markdown: &str, offset: u64, max_tokens: Option<u64>) -> ConvertResult {
+pub(crate) fn truncate_markdown(
+    markdown: &str,
+    offset: u64,
+    max_tokens: Option<u64>,
+) -> ConvertResult {
     if offset == 0 && max_tokens.is_none() {
         let tokens = estimate_tokens(markdown.len());
         return ConvertResult {

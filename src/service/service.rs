@@ -10,6 +10,7 @@ use crate::core::config::Config;
 use crate::core::dom_query::query_selector;
 use crate::core::dom_script::execute_script;
 use crate::core::error::ErrorCode;
+use crate::core::feed_to_md::{ParsedFeed, is_feed_content_type, looks_like_feed};
 use crate::core::form;
 use crate::core::html_to_md::ParsedHtml;
 use crate::core::http_client::{HttpClient, ResponseBody};
@@ -448,6 +449,62 @@ impl BrowserService {
                 }
                 _ => break,
             }
+        }
+
+        // RSS / Atom / RDF feed dispatch — XML feeds parsed as HTML5 collapse
+        // to a wall of run-on text. Detect by Content-Type, falling back to a
+        // cheap body sniff for servers that mislabel as text/xml or
+        // application/xml.
+        let final_mime = response
+            .headers
+            .get("content-type")
+            .and_then(|ct| ct.split(';').next())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+        let is_feed = (is_feed_content_type(&final_mime) && looks_like_feed(&final_html))
+            || (final_mime.is_empty() && looks_like_feed(&final_html));
+        if is_feed {
+            let feed = ParsedFeed::parse(&final_html);
+            let title = feed.title();
+            let description = feed.description();
+            let mut convert = feed.to_markdown_with_options(&options, Some(&final_url));
+            let links = mem::take(&mut convert.links);
+            let meta = PageMetadata {
+                lang: None,
+                description,
+                content_type: if final_mime.is_empty() {
+                    None
+                } else {
+                    Some(final_mime.clone())
+                },
+            };
+            let result = PageResult {
+                url: final_url,
+                title,
+                status: final_status,
+                markdown: convert.markdown,
+                links: if options.include_links {
+                    Some(links.clone())
+                } else {
+                    None
+                },
+                meta,
+                stats: PageStats {
+                    fetch_ms: final_elapsed,
+                    tokens_est: convert.tokens_est,
+                    content_bytes: final_content_length,
+                },
+                truncated: convert.truncated,
+                next_offset: convert.next_offset,
+                content_selectors: None,
+            };
+            let state = PageState {
+                html: final_html,
+                links,
+                result: result.clone(),
+            };
+            self.push_history(state);
+            return Ok(result);
         }
 
         // Parse HTML
