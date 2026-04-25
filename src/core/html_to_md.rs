@@ -811,7 +811,7 @@ fn collect_cell_text(cell_node: NodeRef<'_, Node>) -> String {
 
 // --- Utility functions (ported from diana86) ---
 
-fn collapse_inline_whitespace(s: &str) -> String {
+pub(crate) fn collapse_inline_whitespace(s: &str) -> String {
     let mut out = String::new();
     let mut prev_ws = false;
     for ch in s.chars() {

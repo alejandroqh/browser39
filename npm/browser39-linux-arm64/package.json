@@ -1,6 +1,6 @@
 {
   "name": "@aquintanar/browser39-linux-arm64",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "description": "browser39 binary for Linux ARM64",
   "license": "Apache-2.0",
   "repository": {

@@ -413,70 +413,44 @@ impl BrowserService {
             return Ok(result);
         }
 
+        // Capture content-type before consuming the response body — used for
+        // feed dispatch and stored as page metadata.
+        let initial_mime = response
+            .headers
+            .get("content-type")
+            .and_then(|ct| ct.split(';').next())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+
         // Text content — extract the HTML string
         let html = match response.body {
             ResponseBody::Text(s) => s,
             ResponseBody::Binary(_) => unreachable!(),
         };
 
-        // Follow client-side redirects (meta-refresh, JS location changes) up to 5 hops
         let mut final_url = response.url;
         let mut final_html = html;
         let mut final_elapsed = response.elapsed_ms;
         let mut final_content_length = response.content_length;
         let mut final_status = response.status;
-        for _ in 0..5 {
-            match detect_client_redirect(&final_html, &final_url) {
-                Some(redirect_url) if redirect_url != final_url => {
-                    let redir = self
-                        .http
-                        .fetch(
-                            &redirect_url,
-                            &HttpMethod::Get,
-                            &all_headers,
-                            None,
-                            Some(options.timeout_secs),
-                        )
-                        .await?;
-                    final_url = redir.url;
-                    final_elapsed = redir.elapsed_ms;
-                    final_content_length = redir.content_length;
-                    final_status = redir.status;
-                    final_html = match redir.body {
-                        ResponseBody::Text(s) => s,
-                        ResponseBody::Binary(_) => break,
-                    };
-                }
-                _ => break,
-            }
-        }
 
-        // RSS / Atom / RDF feed dispatch — XML feeds parsed as HTML5 collapse
-        // to a wall of run-on text. Detect by Content-Type, falling back to a
-        // cheap body sniff for servers that mislabel as text/xml or
-        // application/xml.
-        let final_mime = response
-            .headers
-            .get("content-type")
-            .and_then(|ct| ct.split(';').next())
-            .map(|s| s.trim().to_string())
-            .unwrap_or_default();
-        let is_feed = (is_feed_content_type(&final_mime) && looks_like_feed(&final_html))
-            || (final_mime.is_empty() && looks_like_feed(&final_html));
+        // RSS / Atom / RDF feed dispatch — runs before the meta-refresh
+        // redirect loop because XML feeds never carry HTML meta-refresh.
+        // The content-type check filters generic XML (SVG, sitemaps); the
+        // sniff catches mislabeled feeds served as text/xml.
+        let is_feed = (is_feed_content_type(&initial_mime) || initial_mime.is_empty())
+            && looks_like_feed(&final_html);
         if is_feed {
             let feed = ParsedFeed::parse(&final_html);
             let title = feed.title();
             let description = feed.description();
             let mut convert = feed.to_markdown_with_options(&options, Some(&final_url));
             let links = mem::take(&mut convert.links);
+            let content_type = (!initial_mime.is_empty()).then_some(initial_mime);
             let meta = PageMetadata {
                 lang: None,
                 description,
-                content_type: if final_mime.is_empty() {
-                    None
-                } else {
-                    Some(final_mime.clone())
-                },
+                content_type,
             };
             let result = PageResult {
                 url: final_url,
@@ -505,6 +479,33 @@ impl BrowserService {
             };
             self.push_history(state);
             return Ok(result);
+        }
+
+        // Follow client-side redirects (meta-refresh, JS location changes) up to 5 hops
+        for _ in 0..5 {
+            match detect_client_redirect(&final_html, &final_url) {
+                Some(redirect_url) if redirect_url != final_url => {
+                    let redir = self
+                        .http
+                        .fetch(
+                            &redirect_url,
+                            &HttpMethod::Get,
+                            &all_headers,
+                            None,
+                            Some(options.timeout_secs),
+                        )
+                        .await?;
+                    final_url = redir.url;
+                    final_elapsed = redir.elapsed_ms;
+                    final_content_length = redir.content_length;
+                    final_status = redir.status;
+                    final_html = match redir.body {
+                        ResponseBody::Text(s) => s,
+                        ResponseBody::Binary(_) => break,
+                    };
+                }
+                _ => break,
+            }
         }
 
         // Parse HTML

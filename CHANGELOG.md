@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.6.3] - 2026-04-25
+
+### Added
+
+- **RSS / Atom / RDF feed rendering** — XML feeds (RSS 2.0, RSS 1.0/RDF, Atom 1.0) are now detected by `Content-Type` (with body sniff fallback for mislabeled servers) and converted to clean, token-optimized markdown instead of the previous run-on-text result. Each item renders as `## [title](link)` followed by a `date · category` meta line and the description; the channel/feed title becomes the H1.
+- New `src/core/feed_to_md.rs` module with 12 unit tests covering all three feed formats, namespace prefixes (`dc:`, `rdf:`), CDATA-wrapped HTML descriptions, Atom `rel="alternate"` link routing, and graceful partial-parse on malformed XML.
+- New dependency: `quick-xml = "0.37"`.
+
+### Changed
+
+- Feed dispatch runs **before** the meta-refresh redirect loop — XML feeds skip the wasted scan since they never carry HTML meta-refresh.
+- `estimate_tokens`, `truncate_markdown`, and `collapse_inline_whitespace` in `html_to_md` are now `pub(crate)` so the feed module can reuse them.
+
+### Fixed
+
+- `core::config::tests::test_load_full_config` no longer hardcodes a stale user-agent version that broke on every release bump — the test now exercises the default-user-agent path it was always meant to cover.
+
+## [1.6.2] - 2026-04-16
+
+### Changed
+
+- Crate metadata cleanup: shorter `description`, explicit `authors`, and `exclude` list to keep `cargo package` lean. No code changes.
+
 ## [1.6.1] - 2026-04-12
 
 ### Added

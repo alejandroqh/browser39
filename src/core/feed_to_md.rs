@@ -13,7 +13,9 @@ use quick_xml::events::Event;
 use quick_xml::reader::Reader;
 use std::fmt::Write as _;
 
-use super::html_to_md::{ConvertResult, decode_entities, estimate_tokens, truncate_markdown};
+use super::html_to_md::{
+    ConvertResult, collapse_inline_whitespace, decode_entities, truncate_markdown,
+};
 use super::page::{FetchOptions, Link};
 use super::url::resolve_href;
 
@@ -87,22 +89,7 @@ impl ParsedFeed {
             match reader.read_event_into(&mut buf) {
                 Ok(Event::Start(e)) => {
                     let local = local_name(e.name().as_ref());
-                    // Atom <link href="..."/> arrives as Start when not self-closing
-                    if local == "link" && in_atom_context(&stack) {
-                        if let Some(href) = atom_link_href(&e) {
-                            assign_link(&mut channel, current_item.as_mut(), &stack, href);
-                        }
-                    }
-                    if local == "category" && current_item.is_some() {
-                        // Atom: <category term="..."/>
-                        if let Some(term) = attr_value(&e, b"term") {
-                            if let Some(item) = current_item.as_mut() {
-                                if item.category.is_none() {
-                                    item.category = Some(term);
-                                }
-                            }
-                        }
-                    }
+                    handle_attributes(&local, &e, &stack, &mut channel, current_item.as_mut());
                     if local == "item" || local == "entry" {
                         current_item = Some(Item::default());
                     }
@@ -111,21 +98,7 @@ impl ParsedFeed {
                 }
                 Ok(Event::Empty(e)) => {
                     let local = local_name(e.name().as_ref());
-                    // Atom <link href="..." rel="..."/>
-                    if local == "link" && in_atom_context(&stack) {
-                        if let Some(href) = atom_link_href(&e) {
-                            assign_link(&mut channel, current_item.as_mut(), &stack, href);
-                        }
-                    }
-                    if local == "category" {
-                        if let Some(term) = attr_value(&e, b"term") {
-                            if let Some(item) = current_item.as_mut() {
-                                if item.category.is_none() {
-                                    item.category = Some(term);
-                                }
-                            }
-                        }
-                    }
+                    handle_attributes(&local, &e, &stack, &mut channel, current_item.as_mut());
                 }
                 Ok(Event::End(e)) => {
                     let local = local_name(e.name().as_ref());
@@ -192,8 +165,9 @@ impl ParsedFeed {
             let _ = writeln!(out, "# {}", t);
         }
         if let Some(d) = &self.channel.description {
-            let d = collapse_ws(d);
-            if !d.is_empty() && Some(&d) != self.channel.title.as_ref() {
+            let d = collapse_inline_whitespace(d);
+            let d = d.trim();
+            if !d.is_empty() && Some(d) != self.channel.title.as_deref() {
                 let _ = writeln!(out, "*{}*", d);
             }
         }
@@ -267,9 +241,6 @@ impl ParsedFeed {
 
         let markdown = out.trim_end().to_string();
         let mut result = truncate_markdown(&markdown, options.offset, options.max_tokens);
-        if result.tokens_est == 0 {
-            result.tokens_est = estimate_tokens(result.markdown.len());
-        }
         result.links = links;
         result
     }
@@ -312,6 +283,34 @@ fn atom_link_href(e: &quick_xml::events::BytesStart<'_>) -> Option<String> {
 /// an attribute (rather than as text content like RSS).
 fn in_atom_context(stack: &[String]) -> bool {
     stack.iter().any(|t| t == "feed" || t == "entry")
+}
+
+/// Pull `href` (Atom links) and `term` (Atom categories) out of a start/empty
+/// element. Both event types arrive here so RSS feeds with self-closing
+/// elements work the same as Atom feeds with explicit close tags.
+fn handle_attributes(
+    local: &str,
+    e: &quick_xml::events::BytesStart<'_>,
+    stack: &[String],
+    channel: &mut ChannelInfo,
+    item: Option<&mut Item>,
+) {
+    match local {
+        "link" if in_atom_context(stack) => {
+            if let Some(href) = atom_link_href(e) {
+                assign_link(channel, item, stack, href);
+            }
+        }
+        "category" => {
+            if let Some(item) = item
+                && item.category.is_none()
+                && let Some(term) = attr_value(e, b"term")
+            {
+                item.category = Some(term);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn assign_link(
@@ -367,17 +366,13 @@ fn assign_text(
     }
 }
 
-fn collapse_ws(s: &str) -> String {
-    s.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
 /// Remove HTML tags from a description, decode entities, collapse whitespace.
 /// RSS descriptions often contain HTML inside CDATA — we strip it down to
 /// plain text since the description is just a teaser, not the article body.
 fn clean_description(s: &str) -> String {
     let stripped = strip_html_tags(s);
     let decoded = decode_entities(&stripped);
-    collapse_ws(&decoded)
+    collapse_inline_whitespace(&decoded).trim().to_string()
 }
 
 fn strip_html_tags(s: &str) -> String {

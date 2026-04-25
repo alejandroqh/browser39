@@ -2,7 +2,7 @@
   "id": "browser39",
   "name": "browser39",
   "description": "Headless web browser for AI agents. Fetches pages as token-optimized markdown with JS support, forms, cookies, storage, and web search.",
-  "version": "1.6.1",
+  "version": "1.6.3",
   "contracts": {
     "tools": [
       "browser39_fetch",
