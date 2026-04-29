@@ -7,6 +7,8 @@ Defines the action schema for browser39. Two independent transports exist — an
 
 Both transports call the same `BrowserService` underneath, but each is self-sufficient and optimized for its audience.
 
+> **Selectors:** every `selector` field below accepts CSS3 syntax only. See [docs/selectors.md](selectors.md) for the canonical cheat sheet, stable-vs-fragile guidance, and pitfalls (no XPath, no `:contains()`).
+
 ---
 
 # Part 1: Shared Core
@@ -124,7 +126,9 @@ Returns only the links from the current page without re-rendering markdown. Chea
 
 ### `dom_query` — Query the current page DOM
 
-Two modes: **CSS selector** (simple, reliable) or **script** (flexible, boa_engine).
+Two modes: **CSS selector** (simple, reliable) or **script** (flexible, runs in a `deno_core` sandbox).
+
+Selector syntax in this and every other tool is CSS3 only — see [docs/selectors.md](selectors.md) for the cheat sheet, stable-vs-fragile guidance, and common pitfalls (e.g., no `:contains()`).
 
 **Mode 1 — CSS selector (recommended):**
 ```json
@@ -160,7 +164,7 @@ Multiple matches:
 }
 ```
 
-**Mode 2 — Script (advanced, boa_engine):**
+**Mode 2 — Script (advanced, deno_core sandbox):**
 ```json
 {
   "script": "document.querySelectorAll('a').length"
@@ -175,7 +179,7 @@ Multiple matches:
 }
 ```
 
-**boa_engine limitations:** This runs a pure-Rust JS engine against the static parsed HTML. It supports `document.title`, `document.querySelector()`, `document.querySelectorAll()`, and element properties (`textContent`, `innerHTML`, `getAttribute()`, `href`). It does NOT execute page scripts, React/Angular/SPA code, `fetch()`, `setTimeout()`, or any Web API beyond basic DOM traversal. When in doubt, use the CSS selector mode.
+**Sandbox surface:** Scripts run against the static parsed HTML in a `deno_core` V8 sandbox with a broad DOM API: traversal (`parentElement`, `children`, `closest`, `matches`), lookup (`getElementById`, `getElementsByClassName`/`TagName`), mutation (`createElement`, `appendChild`, `setAttribute`, `innerHTML`/`textContent` setters), events (`addEventListener`, `dispatchEvent`, `new Event`/`CustomEvent`), and globals (`console.log`/`warn`/`error`, `setTimeout`, `atob`/`btoa`, `localStorage`, `document.cookie`). Console output is captured. The sandbox does NOT execute the page's own scripts (no React/Angular/SPA code), and `fetch()` is not exposed — use the `fetch` action for HTTP. When in doubt, prefer the CSS selector mode.
 
 **Error:**
 ```json
@@ -806,15 +810,15 @@ Query the current page DOM.
 
 | Parameter | Type | Required (one of) | Description |
 |-----------|------|----------|-------------|
-| `selector` | string | yes* | CSS selector |
-| `script` | string | yes* | JS expression (boa_engine) |
+| `selector` | string | yes* | CSS selector (CSS3, see [docs/selectors.md](selectors.md)) |
+| `script` | string | yes* | JS expression (deno_core sandbox) |
 | `attr` | string | no | Attribute to extract (default: `textContent`) |
 
 *One of `selector` or `script` is required.
 
 Returns: matching results array (selector mode) or single result value (script mode).
 
-**boa_engine Web API shims:** Script mode supports `localStorage.getItem/setItem/removeItem/clear`, `document.cookie` (get/set), `element.value` setter, `form.submit()`, and `element.click()`. These interact with real session state (cookie jar, storage, filled fields). `form.submit()` and `element.click()` can trigger navigation — the result will include the new page if navigation occurred.
+**Sandbox surface:** Script mode runs in a `deno_core` V8 sandbox with a broad DOM API (traversal, lookup, mutation, events) and Web globals (`localStorage`, `document.cookie`, `console.log`, `setTimeout`, `atob`/`btoa`). `form.submit()` and `element.click()` interact with real session state and can trigger navigation — the result will include the new page if navigation occurred. Page-owned scripts and `fetch()` are NOT executed.
 
 ### `browser39_fill`
 

@@ -1,0 +1,1169 @@
+## browser39_back
+
+Navigate one step back in the session's browsing history. Returns the prior page.
+
+USE WHEN: undoing a navigation; you went somewhere and want to return. NOT WHEN: you want a specific past URL — use browser39_history to find it then browser39_fetch directly.
+
+Effect: read (history is in-memory; the page is re-rendered from cache, no network).
+
+Common failures:
+- NO_HISTORY → already at the oldest entry; nowhere to go back to.
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+## browser39_click
+
+Follow a link on the current page by index number or visible link text.
+
+USE WHEN: navigating to a link returned by browser39_fetch or browser39_links. NOT WHEN: clicking a button that is not an `<a href>` (use browser39_dom_query with a script that calls `.click()`), or submitting a form (use browser39_submit).
+
+Effect: read (GET request).
+
+Common failures:
+- NO_PAGE → no current page; call browser39_fetch first.
+- LINK_NOT_FOUND → index out of range, or text didn't match any link substring (case-insensitive). Call browser39_links to see what is actually on the page; the link list is authoritative.
+- HTTP_ERROR / TIMEOUT → target URL failed; retryable.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ClickParams",
+  "type": "object",
+  "properties": {
+    "index": {
+      "description": "Link index from `browser39_links` output. Pass either `index` or `text`,\nnot both — `index` is unambiguous and preferred when available.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint",
+      "minimum": 0
+    },
+    "text": {
+      "description": "Visible link text to match (case-insensitive substring). Resolves to the\nfirst match; if multiple links share text, use `index` instead.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "max_tokens": {
+      "description": "Maximum tokens to return",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    }
+  }
+}
+```
+
+## browser39_config_auth_delete
+
+Delete an auth profile by name.
+
+USE WHEN: rotating credentials, or removing access to a service. NOT WHEN: you want to keep the profile but disable temporarily — clear the `value`/`value_env` field with browser39_config_auth_set instead.
+
+Effect: local-mutate.
+
+Common failures:
+- profile not found → message names the missing profile; use browser39_config_show to list current profiles.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigAuthDeleteParams",
+  "type": "object",
+  "properties": {
+    "name": {
+      "description": "Auth profile name to delete",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
+```
+
+## browser39_config_auth_set
+
+Add or update a named auth profile. Credentials are stored on disk and never returned via MCP — agents reference profiles by name and never see the value.
+
+USE WHEN: priming an auth flow that needs persistent credentials (Bearer tokens, API keys). Pass `value` for a literal, or `value_env` to read from a process env var (preferred — avoids the value passing through MCP at all).
+
+Effect: local-mutate.
+
+Common failures:
+- domains list is empty → at least one domain (with optional `*.` wildcard) is required, or all requests using this profile will be rejected.
+- Wildcard misuse → `*.example.com` matches subdomains only, not the bare apex; include both if needed.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigAuthSetParams",
+  "type": "object",
+  "properties": {
+    "name": {
+      "description": "Auth profile name (e.g., \"github\", \"internal\")",
+      "type": "string"
+    },
+    "header": {
+      "description": "HTTP header name (e.g., \"Authorization\", \"X-API-Key\")",
+      "type": "string"
+    },
+    "value": {
+      "description": "Credential value (stored securely, NEVER returned via MCP)",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "value_env": {
+      "description": "Environment variable name containing the credential",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "value_prefix": {
+      "description": "Prefix prepended to the value (e.g., \"Bearer \")",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "domains": {
+      "description": "Domains this profile applies to (e.g., [\"api.github.com\", \"*.github.com\"])",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "name",
+    "header",
+    "domains"
+  ]
+}
+```
+
+## browser39_config_cookie_delete
+
+Remove a preloaded cookie from the config (matched by name + domain).
+
+USE WHEN: pruning stale preloads. NOT WHEN: clearing a runtime cookie — use browser39_delete_cookie for the live jar.
+
+Effect: local-mutate.
+
+Common failures:
+- not found → name and domain must match exactly.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigCookieDeleteParams",
+  "type": "object",
+  "properties": {
+    "name": {
+      "description": "Cookie name",
+      "type": "string"
+    },
+    "domain": {
+      "description": "Cookie domain",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "domain"
+  ]
+}
+```
+
+## browser39_config_cookie_set
+
+Add or update a preloaded cookie that browser39 injects into the jar at session startup. Sensitive cookies are masked in browser39_config_show.
+
+USE WHEN: priming an authenticated session that uses cookies. Set `sensitive: true` for credential cookies so they're never echoed.
+
+Effect: local-mutate (config file).
+
+Common failures:
+- Identical (name, domain) is replaced silently — this is by design; check browser39_config_show to confirm the active value.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigCookieSetParams",
+  "type": "object",
+  "properties": {
+    "name": {
+      "description": "Cookie name",
+      "type": "string"
+    },
+    "value": {
+      "description": "Cookie value (stored, masked if sensitive)",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "value_env": {
+      "description": "Environment variable containing the cookie value",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "domain": {
+      "description": "Cookie domain",
+      "type": "string"
+    },
+    "path": {
+      "description": "Cookie path (defaults to \"/\")",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "secure": {
+      "description": "Whether the cookie requires HTTPS",
+      "type": "boolean",
+      "default": false
+    },
+    "http_only": {
+      "description": "Whether the cookie is HTTP-only",
+      "type": "boolean",
+      "default": false
+    },
+    "sensitive": {
+      "description": "Whether the cookie value is sensitive (will be masked in config_show)",
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "name",
+    "domain"
+  ]
+}
+```
+
+## browser39_config_header_delete
+
+Remove a default-header rule by its domain list. The domain list must match the existing rule exactly.
+
+Effect: local-mutate.
+
+Common failures:
+- not found → the rule's `domains` array must match exactly (same set, same order); verify via browser39_config_show.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigHeaderDeleteParams",
+  "type": "object",
+  "properties": {
+    "domains": {
+      "description": "Domains of the header rule to delete (must match the rule's domain list exactly)",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "domains"
+  ]
+}
+```
+
+## browser39_config_header_set
+
+Add or update a default-header rule that applies to every matching request. Domains list defines which hosts the rule applies to (wildcards supported).
+
+USE WHEN: a service requires a constant header (Accept, X-Client-Version) on every request. NOT WHEN: a single fetch needs a one-off header — pass `headers` inline on browser39_fetch instead.
+
+Effect: local-mutate.
+
+Common failures:
+- Replacing an existing rule requires the domain list to match exactly — otherwise both rules end up in config; check with browser39_config_show.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigHeaderSetParams",
+  "type": "object",
+  "properties": {
+    "domains": {
+      "description": "Domains this header rule applies to (e.g., [\"api.example.com\", \"*.api.example.com\"])",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "values": {
+      "description": "Header key-value pairs to set",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "domains",
+    "values"
+  ]
+}
+```
+
+## browser39_config_set
+
+Set a browser39 config value by dot-key. Allowed keys: session.start_url, session.user_agent, session.timeout_secs, session.max_redirects, session.persistence, session.defaults.max_tokens, session.defaults.strip_nav, session.defaults.include_links, session.defaults.include_images, search.engine.
+
+USE WHEN: persisting a tweak across restarts. NOT WHEN: you want a one-shot override for a single fetch — pass the option inline on the call instead.
+
+Effect: local-mutate (writes the config file on disk and reloads the session).
+
+Common failures:
+- Unknown key → message lists every allowed key.
+- Type error (e.g., timeout_secs not an integer) → message names the expected type.
+- session.persistence values must be 'disk' or 'memory'.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigSetParams",
+  "type": "object",
+  "properties": {
+    "key": {
+      "description": "Setting key in dot notation. Allowed keys:\nsession.start_url, session.user_agent, session.timeout_secs, session.max_redirects,\nsession.persistence, session.defaults.max_tokens, session.defaults.strip_nav,\nsession.defaults.include_links, session.defaults.include_images, search.engine",
+      "type": "string"
+    },
+    "value": {
+      "description": "New value (as string; parsed to the appropriate type)",
+      "type": "string"
+    }
+  },
+  "required": [
+    "key",
+    "value"
+  ]
+}
+```
+
+## browser39_config_show
+
+Show browser39 configuration with sensitive values masked. Never returns the raw config file. Use `section` to filter: session, search, auth, cookies, storage, headers, security. Omit to show all sections.
+
+USE WHEN: inspecting current settings; verifying an auth profile is wired correctly. NOT WHEN: trying to read a credential — masked values cannot be unmasked through MCP.
+
+Effect: read.
+
+Common failures:
+- Unknown section → message lists the seven valid sections.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigShowParams",
+  "type": "object",
+  "properties": {
+    "section": {
+      "description": "Config section to show. Options: session, search, auth, cookies, storage, headers, security.\nIf omitted, shows all sections.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+## browser39_config_storage_delete
+
+Remove a preloaded localStorage entry from the config (matched by origin + key).
+
+Effect: local-mutate.
+
+Common failures:
+- not found → origin and key must match exactly.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigStorageDeleteParams",
+  "type": "object",
+  "properties": {
+    "origin": {
+      "description": "Origin (e.g., \"https://app.example.com\")",
+      "type": "string"
+    },
+    "key": {
+      "description": "Storage key",
+      "type": "string"
+    }
+  },
+  "required": [
+    "origin",
+    "key"
+  ]
+}
+```
+
+## browser39_config_storage_set
+
+Add or update a preloaded localStorage entry that browser39 injects at session startup. Sensitive entries are masked in browser39_config_show.
+
+USE WHEN: priming an SPA with a known token or flag. NOT WHEN: the value should not survive restarts — use browser39_storage_set at runtime instead.
+
+Effect: local-mutate (config file).
+
+Common failures:
+- Identical (origin, key) is replaced silently.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigStorageSetParams",
+  "type": "object",
+  "properties": {
+    "origin": {
+      "description": "Origin (e.g., \"https://app.example.com\")",
+      "type": "string"
+    },
+    "key": {
+      "description": "Storage key",
+      "type": "string"
+    },
+    "value": {
+      "description": "Storage value (stored, masked if sensitive)",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "value_env": {
+      "description": "Environment variable containing the value",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sensitive": {
+      "description": "Whether the value is sensitive (will be masked in config_show)",
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "origin",
+    "key"
+  ]
+}
+```
+
+## browser39_cookies
+
+List cookies in the session cookie jar, optionally filtered by domain.
+
+USE WHEN: debugging an auth flow, verifying a Set-Cookie landed, or building a request that needs to mirror the jar. NOT WHEN: you only need the cookie value for an outbound request — browser39 attaches jar cookies to matching requests automatically.
+
+Effect: read. Sensitive cookie values are masked (only the secret handle is returned).
+
+Common failures: none typical. Empty result simply means no cookies in jar for the domain filter.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CookiesParams",
+  "type": "object",
+  "properties": {
+    "domain": {
+      "description": "Filter cookies by domain",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+## browser39_delete_cookie
+
+Delete a cookie from the session cookie jar by name + domain.
+
+USE WHEN: clearing auth between flows, testing logout, or removing a stale jar entry. NOT WHEN: you want the server to invalidate the session — call the logout endpoint instead.
+
+Effect: local-mutate.
+
+Common failures:
+- Returns deleted: false → the (name, domain) pair didn't exist; not an error. Use browser39_cookies to confirm what's actually in the jar.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeleteCookieParams",
+  "type": "object",
+  "properties": {
+    "name": {
+      "description": "Cookie name to delete",
+      "type": "string"
+    },
+    "domain": {
+      "description": "Domain of the cookie to delete",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "domain"
+  ]
+}
+```
+
+## browser39_dom_query
+
+Query the DOM of the current page using a CSS selector OR a JavaScript expression. Exactly one of `selector` or `script` is required.
+
+USE WHEN: extracting structured data, or running custom DOM logic. NOT WHEN: matching by visible text — CSS does not support `:contains()`; use a script: `Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Submit'))`. NOT WHEN: you want to navigate — element.click() and form.submit() inside script DO trigger navigation, but the result shape is different; use browser39_click or browser39_submit when navigation is the goal.
+
+Effect: read in selector mode; local-mutate or external-mutate in script mode (scripts can fill fields, dispatch events, or trigger requests via .click()/.submit()).
+
+Selector parameter accepts CSS only. See docs/selectors.md.
+
+Script mode runs against the static parsed HTML in a deno_core sandbox with full DOM API: traversal (parentElement, children, closest, matches), lookup (getElementById, getElementsByClassName/TagName), mutation (createElement, appendChild, setAttribute, innerHTML/textContent setters), events (addEventListener, dispatchEvent, new Event), and globals (console.log, setTimeout, atob/btoa, localStorage). Console output is captured.
+
+Common failures:
+- NO_PAGE → no current page; call browser39_fetch first.
+- DOM_QUERY_ERROR → invalid CSS selector or JS exception; the message will name the line/symbol. Reading the relevant section with browser39_fetch + selector first usually clarifies the structure.
+- Script returned undefined → ensure the last expression is the value you want; the engine returns the final expression, not all intermediate results.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DomQueryParams",
+  "type": "object",
+  "properties": {
+    "selector": {
+      "description": "CSS selector matching one or more elements. Mutually exclusive with `script`.\nCSS3 only — no XPath, no `:contains()`; for visible-text matching, use a\n`script` with `Array.from(...).find(el => el.textContent.includes(...))`.\nSee docs/selectors.md.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "script": {
+      "description": "JavaScript to execute against the page DOM. Available APIs:\ndocument: querySelector/All, getElementById, getElementsByClassName/TagName/Name,\ncreateElement, createTextNode, title, body, head, cookie, forms, links.\nElements: parentElement, children, firstChild, lastChild, nextSibling, previousSibling,\nnextElementSibling, previousElementSibling, closest(sel), matches(sel), contains(node),\ngetAttribute, setAttribute, removeAttribute, hasAttribute, classList, dataset,\ntextContent (get/set), innerHTML (get/set), outerHTML, appendChild, removeChild,\ninsertBefore, remove(), click(), submit(), value (get/set for form fields).\nEvents: addEventListener, removeEventListener, dispatchEvent, new Event/CustomEvent.\nGlobals: console.log/warn/error, setTimeout, setInterval, atob, btoa,\nrequestAnimationFrame, getComputedStyle, MutationObserver, localStorage, window.location.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "attr": {
+      "description": "Attribute to extract from matched elements (selector mode only; ignored\nwhen `script` is set). Default: `textContent`. Common values: `textContent`,\n`innerHTML`, `outerHTML`, `href`, `src`, `value`, or any HTML attribute name.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+## browser39_fetch
+
+Fetch a URL and return the page as token-optimized markdown. Supports GET/POST/PUT/PATCH/DELETE, auth profiles, custom headers, CSS selector extraction, pagination, and binary downloads.
+
+USE WHEN: loading a new page by URL, calling an HTTP API, or downloading a binary asset. NOT WHEN: following a link already listed by browser39_links (use browser39_click for that — it preserves Referer and is cheaper).
+
+Effect: read for GET, external-mutate for POST/PUT/PATCH/DELETE.
+
+Selector parameter accepts CSS only. See docs/selectors.md.
+
+Common failures:
+- INVALID_URL → URL didn't parse; ensure scheme (https://) is present.
+- TIMEOUT → server slow or unreachable; retryable, or raise timeout in config.
+- HTTP_ERROR → 4xx/5xx response. Inspect status; for 401/403 attach an auth_profile.
+- AUTH_PROFILE_DOMAIN_MISMATCH → the requested URL is outside the profile's allowed domains; pick a different profile or extend `domains` in config.
+- SELECTOR_NOT_FOUND → CSS selector matched zero elements; re-fetch without selector to see the page, or pick from content_selectors in the response.
+- Page came back giant → set `max_tokens` and use `show_selectors_first: true` (default) to preview section sizes before committing tokens.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FetchParams",
+  "type": "object",
+  "properties": {
+    "url": {
+      "description": "Absolute URL to fetch (must include scheme, e.g., `https://example.com`).",
+      "type": "string"
+    },
+    "method": {
+      "description": "HTTP method (GET, POST, PUT, PATCH, DELETE). Defaults to GET.",
+      "$ref": "#/$defs/HttpMethod",
+      "default": "GET"
+    },
+    "body": {
+      "description": "Request body (for POST/PUT/PATCH)",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "auth_profile": {
+      "description": "Name of an auth profile defined via `browser39_config_auth_set`. The\nprofile's header is attached only when the URL's host matches the\nprofile's `domains` list — mismatch returns AUTH_PROFILE_DOMAIN_MISMATCH.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "headers": {
+      "description": "Additional HTTP headers as key-value pairs",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": null
+    },
+    "max_tokens": {
+      "description": "Maximum tokens to return. Enables pagination if content exceeds limit.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "selector": {
+      "description": "CSS selector to extract a specific subtree from the page (e.g., `main`,\n`#article`, `[data-testid=\"content\"]`). Reduces tokens significantly on\nlarge pages. CSS3 only — no XPath, no `:contains()`. See docs/selectors.md.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "offset": {
+      "description": "Byte offset for pagination. Use next_offset from a previous truncated response.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "show_selectors_first": {
+      "description": "When true (default), returns available content selectors instead of full page content.\nRe-fetch with a chosen selector for targeted content. Set to false to get the raw page.",
+      "type": "boolean",
+      "default": true
+    },
+    "download_path": {
+      "description": "File path to save binary content (images, PDFs, etc.) to disk.\nWhen set, binary responses are written to this path instead of returned inline.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "url"
+  ],
+  "$defs": {
+    "HttpMethod": {
+      "type": "string",
+      "enum": [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE"
+      ]
+    }
+  }
+}
+```
+
+## browser39_fill
+
+Fill form field(s) by CSS selector. Works on `<input>`, `<textarea>`, and `<select>` elements. Values persist in session state until form submission.
+
+USE WHEN: setting form values before browser39_submit. NOT WHEN: clicking a submit button — values are sent automatically by browser39_submit; you do not need to fill the submit input itself.
+
+Effect: local-mutate (changes session DOM state; does not send a request).
+
+Selector parameter accepts CSS only. See docs/selectors.md.
+
+Pass either `selector` + `value` for one field, or `fields: [{selector, value}, ...]` for many. If both are present, `fields` wins.
+
+Common failures:
+- NO_PAGE → no current page; call browser39_fetch first.
+- SELECTOR_NOT_FOUND → selector matched zero elements; verify with browser39_dom_query first.
+- Field is read-only / disabled → fill silently no-ops on disabled inputs; the form will not submit them.
+- For passwords or tokens: pass values through secret handles (${browser39_secret_N}) so they don't leak into the conversation.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FillParams",
+  "type": "object",
+  "properties": {
+    "selector": {
+      "description": "CSS selector for a single field (use with `value`). See docs/selectors.md.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "value": {
+      "description": "Value for the single field (use with `selector`). For passwords or tokens,\nprefer a secret handle (`${browser39_secret_N}`).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "fields": {
+      "description": "Array of `{selector, value}` entries for filling multiple fields at once.\nTakes precedence over `selector`/`value` when both are present.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/$defs/FillFieldParam"
+      }
+    }
+  },
+  "$defs": {
+    "FillFieldParam": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "description": "CSS selector for the form field (must resolve to an `<input>`, `<textarea>`,\nor `<select>`). See docs/selectors.md.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Value to fill. For passwords or tokens, prefer a secret handle\n(`${browser39_secret_N}`) so the value never enters the conversation.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "selector",
+        "value"
+      ]
+    }
+  }
+}
+```
+
+## browser39_forward
+
+Navigate one step forward in the session's browsing history. Inverse of browser39_back.
+
+USE WHEN: redoing a navigation after browser39_back. NOT WHEN: you haven't gone back — there's nothing forward to go to.
+
+Effect: read.
+
+Common failures:
+- NO_HISTORY → already at the newest entry; nowhere to go forward to.
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+## browser39_history
+
+Search or list the session's browsing history. Returns recent pages, optionally filtered by a query that matches URL or title (case-insensitive).
+
+USE WHEN: finding a specific past URL; inspecting the navigation trail. Defaults to the 10 most recent entries; pass `limit` to widen.
+
+Effect: read.
+
+Common failures: none typical. Empty `entries` simply means no matches (or no history yet).
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HistoryParams",
+  "type": "object",
+  "properties": {
+    "query": {
+      "description": "Text to search for in URLs and titles. If omitted, lists recent entries.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "limit": {
+      "description": "Maximum number of entries to return (default: 10).",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint",
+      "minimum": 0
+    }
+  }
+}
+```
+
+## browser39_info
+
+Get session info and confirm liveness — current URL, title, history depth, cookie count, uptime. Doubles as a heartbeat.
+
+USE WHEN: orienting at session start, after a long pause, or to verify browser39 is still responsive.
+
+Effect: read.
+
+Common failures: none. Always returns even if no page has been loaded yet (current_url and title will be null).
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+## browser39_links
+
+List every link on the current page with its index, visible text, and href. Cheap — reads from session cache, no network request.
+
+USE WHEN: deciding which link to follow; resolving ambiguous click(text=...) calls; building a navigation plan. NOT WHEN: you already know the URL — use browser39_fetch directly.
+
+Effect: read.
+
+Common failures:
+- NO_PAGE → no current page; call browser39_fetch first.
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+## browser39_search
+
+Search the web using the configured search engine (default: DuckDuckGo) and return the result page as markdown.
+
+USE WHEN: discovering URLs you don't know yet. NOT WHEN: you already have a URL — call browser39_fetch directly. NOT WHEN: searching within a single site — use the site's own search box via browser39_fill + browser39_submit.
+
+Effect: read (the search engine is queried; this is technically external, but no state-changing request).
+
+Common failures:
+- HTTP_ERROR / TIMEOUT → search engine unreachable; retryable.
+- Results page schema changed → markdown will still render but extracting links by index may shift; rely on link text or re-call browser39_links after.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SearchParams",
+  "type": "object",
+  "properties": {
+    "query": {
+      "description": "Search query string",
+      "type": "string"
+    },
+    "max_tokens": {
+      "description": "Maximum tokens to return",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "query"
+  ]
+}
+```
+
+## browser39_set_cookie
+
+Insert or update a cookie in the session cookie jar.
+
+USE WHEN: priming auth state from a known token, replicating a Set-Cookie observed out of band, or testing cookie-driven behavior. NOT WHEN: the server already issued the cookie via Set-Cookie — browser39 stored it automatically.
+
+Effect: local-mutate (cookie jar only; does not send a request).
+
+Common failures:
+- COOKIE_ERROR → invalid domain or malformed value; ensure `domain` matches the host you intend (no scheme, no port).
+- The cookie won't be sent → check `secure: true` requires HTTPS, and `domain` matches the request URL's host (or is a parent domain).
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SetCookieParams",
+  "type": "object",
+  "properties": {
+    "name": {
+      "description": "Cookie name",
+      "type": "string"
+    },
+    "value": {
+      "description": "Cookie value",
+      "type": "string"
+    },
+    "domain": {
+      "description": "Cookie domain",
+      "type": "string"
+    },
+    "path": {
+      "description": "Cookie path (defaults to \"/\")",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "secure": {
+      "description": "Whether the cookie requires HTTPS",
+      "type": "boolean",
+      "default": false
+    },
+    "http_only": {
+      "description": "Whether the cookie is HTTP-only (not accessible to JavaScript)",
+      "type": "boolean",
+      "default": false
+    },
+    "max_age_secs": {
+      "description": "Cookie expiration in seconds from now",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "name",
+    "value",
+    "domain"
+  ]
+}
+```
+
+## browser39_storage_clear
+
+Wipe all localStorage entries for an origin.
+
+USE WHEN: resetting an app's client state to defaults. NOT WHEN: only one key is stale — use browser39_storage_delete to avoid losing other state.
+
+Effect: local-mutate. Returns the count of cleared entries.
+
+Common failures:
+- NO_PAGE → no current page and no `origin`; pass `origin` or fetch a page first.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StorageClearParams",
+  "type": "object",
+  "properties": {
+    "origin": {
+      "description": "Origin (scheme://host:port). Defaults to current page origin.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+## browser39_storage_delete
+
+Delete a localStorage key for an origin.
+
+USE WHEN: clearing a stale or invalid client-side flag. NOT WHEN: clearing the entire origin's storage — use browser39_storage_clear.
+
+Effect: local-mutate.
+
+Common failures:
+- NO_PAGE → no current page and no `origin`; pass `origin` or fetch a page first.
+- Returns deleted: false → key didn't exist; not an error.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StorageDeleteParams",
+  "type": "object",
+  "properties": {
+    "key": {
+      "description": "Storage key to delete",
+      "type": "string"
+    },
+    "origin": {
+      "description": "Origin (scheme://host:port). Defaults to current page origin.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "key"
+  ]
+}
+```
+
+## browser39_storage_get
+
+Read a localStorage value for an origin. Defaults to the current page's origin.
+
+USE WHEN: inspecting client-side state set by the page or by a previous browser39 script. NOT WHEN: the value lives in cookies — use browser39_cookies. NOT WHEN: you want sessionStorage — that's not stored across the headless model.
+
+Effect: read. Sensitive values are masked.
+
+Common failures:
+- NO_PAGE → no current page and no `origin` provided. Either fetch a page first or pass `origin` explicitly (e.g., `https://example.com`).
+- value is null → key doesn't exist for that origin; not an error.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StorageGetParams",
+  "type": "object",
+  "properties": {
+    "key": {
+      "description": "Storage key to retrieve",
+      "type": "string"
+    },
+    "origin": {
+      "description": "Origin (scheme://host:port). Defaults to current page origin.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "key"
+  ]
+}
+```
+
+## browser39_storage_list
+
+List every localStorage key/value pair for an origin.
+
+USE WHEN: discovering what an SPA stores client-side; debugging a flow that depends on storage. NOT WHEN: you already know the key — use browser39_storage_get.
+
+Effect: read. Sensitive values are masked.
+
+Common failures:
+- NO_PAGE → no current page and no `origin`; pass `origin` explicitly or fetch first.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StorageListParams",
+  "type": "object",
+  "properties": {
+    "origin": {
+      "description": "Origin (scheme://host:port). Defaults to current page origin.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+## browser39_storage_set
+
+Write a localStorage value for an origin. Defaults to the current page's origin.
+
+USE WHEN: priming app state for an SPA, or writing a value the page would normally set itself (e.g., consent flags). NOT WHEN: the value is sensitive — pass it through a secret handle (${browser39_secret_N}) instead of inline so it doesn't leak.
+
+Effect: local-mutate (browser-side storage only; no network).
+
+Common failures:
+- NO_PAGE → no current page and no `origin`; pass `origin` or fetch a page first.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StorageSetParams",
+  "type": "object",
+  "properties": {
+    "key": {
+      "description": "Storage key",
+      "type": "string"
+    },
+    "value": {
+      "description": "Value to store",
+      "type": "string"
+    },
+    "origin": {
+      "description": "Origin (scheme://host:port). Defaults to current page origin.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "key",
+    "value"
+  ]
+}
+```
+
+## browser39_submit
+
+Submit a form by CSS selector pointing at the `<form>` element. Sends every named field (including values set by browser39_fill) using the form's method and action. Returns the response page as markdown.
+
+USE WHEN: completing a form interaction after browser39_fill. NOT WHEN: the action is a remote API and you already know the URL — use browser39_fetch with method=POST and a body instead.
+
+Effect: external-mutate. The submit hits the form's action URL, which may change remote state (login, post, purchase, send). Always read the form's action and method (browser39_dom_query selector=form, attr=action) before calling on high-stakes flows.
+
+Selector parameter accepts CSS only — must resolve to a `<form>` element. See docs/selectors.md.
+
+Common failures:
+- NO_PAGE → no current page; call browser39_fetch first.
+- FORM_NOT_FOUND → selector matched something other than a `<form>`; double-check with browser39_dom_query.
+- SELECTOR_NOT_FOUND → selector matched zero elements.
+- HTTP_ERROR → server rejected the submission; inspect the returned page for validation messages, fix fields with browser39_fill, retry.
+- Submitted but nothing changed → the form may rely on JS that browser39 doesn't run; inspect the form's onsubmit handler with browser39_dom_query.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SubmitParams",
+  "type": "object",
+  "properties": {
+    "selector": {
+      "description": "CSS selector pointing at the `<form>` element to submit. Must resolve to\na form, not a button — submit hits the form's action and method.\nSee docs/selectors.md.",
+      "type": "string"
+    },
+    "max_tokens": {
+      "description": "Maximum tokens to return in the response page",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "selector"
+  ]
+}
+```
+

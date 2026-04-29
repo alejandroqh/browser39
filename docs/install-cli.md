@@ -6,7 +6,7 @@ browser39 integrates with any agent application via **watch mode** — a long-ru
 
 | | Raw HTTP (ureq, reqwest) | browser39 watch |
 |---|---|---|
-| JavaScript | No | Yes (boa_engine) |
+| JavaScript | No | Yes (deno_core / V8) |
 | Cookies & sessions | Manual | Automatic, persisted |
 | HTML to markdown | DIY | Built-in, token-optimized |
 | Navigation history | No | Yes, with back/forward |

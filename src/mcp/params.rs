@@ -7,7 +7,7 @@ use crate::core::page::{HttpMethod, default_true};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct FetchParams {
-    /// URL to fetch
+    /// Absolute URL to fetch (must include scheme, e.g., `https://example.com`).
     pub url: String,
 
     /// HTTP method (GET, POST, PUT, PATCH, DELETE). Defaults to GET.
@@ -17,7 +17,9 @@ pub struct FetchParams {
     /// Request body (for POST/PUT/PATCH)
     pub body: Option<String>,
 
-    /// Auth profile name from config to attach credentials
+    /// Name of an auth profile defined via `browser39_config_auth_set`. The
+    /// profile's header is attached only when the URL's host matches the
+    /// profile's `domains` list — mismatch returns AUTH_PROFILE_DOMAIN_MISMATCH.
     pub auth_profile: Option<String>,
 
     /// Additional HTTP headers as key-value pairs
@@ -27,7 +29,9 @@ pub struct FetchParams {
     /// Maximum tokens to return. Enables pagination if content exceeds limit.
     pub max_tokens: Option<u64>,
 
-    /// CSS selector to extract specific content from the page
+    /// CSS selector to extract a specific subtree from the page (e.g., `main`,
+    /// `#article`, `[data-testid="content"]`). Reduces tokens significantly on
+    /// large pages. CSS3 only — no XPath, no `:contains()`. See docs/selectors.md.
     pub selector: Option<String>,
 
     /// Byte offset for pagination. Use next_offset from a previous truncated response.
@@ -45,10 +49,12 @@ pub struct FetchParams {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ClickParams {
-    /// Link index number (from browser39_links output)
+    /// Link index from `browser39_links` output. Pass either `index` or `text`,
+    /// not both — `index` is unambiguous and preferred when available.
     pub index: Option<usize>,
 
-    /// Link text to match (substring match, case-insensitive)
+    /// Visible link text to match (case-insensitive substring). Resolves to the
+    /// first match; if multiple links share text, use `index` instead.
     pub text: Option<String>,
 
     /// Maximum tokens to return
@@ -57,7 +63,10 @@ pub struct ClickParams {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct DomQueryParams {
-    /// CSS selector to query (returns matching elements). Mutually exclusive with script.
+    /// CSS selector matching one or more elements. Mutually exclusive with `script`.
+    /// CSS3 only — no XPath, no `:contains()`; for visible-text matching, use a
+    /// `script` with `Array.from(...).find(el => el.textContent.includes(...))`.
+    /// See docs/selectors.md.
     pub selector: Option<String>,
 
     /// JavaScript to execute against the page DOM. Available APIs:
@@ -73,34 +82,41 @@ pub struct DomQueryParams {
     /// requestAnimationFrame, getComputedStyle, MutationObserver, localStorage, window.location.
     pub script: Option<String>,
 
-    /// Attribute to extract from matched elements (default: textContent).
-    /// Options: textContent, innerHTML, href, src, or any HTML attribute.
+    /// Attribute to extract from matched elements (selector mode only; ignored
+    /// when `script` is set). Default: `textContent`. Common values: `textContent`,
+    /// `innerHTML`, `outerHTML`, `href`, `src`, `value`, or any HTML attribute name.
     pub attr: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct FillFieldParam {
-    /// CSS selector for the form field
+    /// CSS selector for the form field (must resolve to an `<input>`, `<textarea>`,
+    /// or `<select>`). See docs/selectors.md.
     pub selector: String,
-    /// Value to fill
+    /// Value to fill. For passwords or tokens, prefer a secret handle
+    /// (`${browser39_secret_N}`) so the value never enters the conversation.
     pub value: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct FillParams {
-    /// CSS selector for a single field (use with value)
+    /// CSS selector for a single field (use with `value`). See docs/selectors.md.
     pub selector: Option<String>,
 
-    /// Value for the single field (use with selector)
+    /// Value for the single field (use with `selector`). For passwords or tokens,
+    /// prefer a secret handle (`${browser39_secret_N}`).
     pub value: Option<String>,
 
-    /// Array of fields to fill (alternative to selector+value)
+    /// Array of `{selector, value}` entries for filling multiple fields at once.
+    /// Takes precedence over `selector`/`value` when both are present.
     pub fields: Option<Vec<FillFieldParam>>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SubmitParams {
-    /// CSS selector for the form element to submit
+    /// CSS selector pointing at the `<form>` element to submit. Must resolve to
+    /// a form, not a button — submit hits the form's action and method.
+    /// See docs/selectors.md.
     pub selector: String,
 
     /// Maximum tokens to return in the response page
