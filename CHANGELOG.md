@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.7.0] - 2026-04-29
+
+### Added
+
+- **Decision-grade MCP tool descriptions** — every `browser39_*` tool now ships a structured description (purpose / USE WHEN / NOT WHEN / Effect class / Common failures with repair moves) so agents can pick the right tool before inspecting parameters and self-correct on errors. Effect classes follow a `read | local-mutate | external-mutate | irreversible` taxonomy.
+- **Selector reference doc** (`docs/selectors.md`) — canonical CSS3-only cheat sheet, stable-vs-fragile guidance, and pitfalls (no XPath, no `:contains()`); every selector field doc-comment now points to it.
+- **MCP tool schema snapshot test** (`src/mcp/snapshots/tool_schema.snap`) — locks the rendered tool list so unintended description or schema changes surface as a reviewable diff. Update intentionally with `UPDATE_SNAPSHOTS=1 cargo test tool_schema_snapshot`.
+
+### Changed
+
+- Param-level doc comments rewritten across `FetchParams`, `ClickParams`, `DomQueryParams`, `FillParams`, `FillFieldParam`, `SubmitParams`: secret-handle hints on credential values, `index`/`text` disambiguation on `click`, `value`/`outerHTML`/`textContent` added to documented `attr` options, `AUTH_PROFILE_DOMAIN_MISMATCH` wired into `auth_profile` docs.
+- `docs/jsonl-protocol.md` and `docs/install-cli.md`: replaced stale `boa_engine` references with `deno_core` (V8) and added a top-level pointer to the selectors doc.
+
+### Fixed
+
+- Documentation drift: JSONL protocol doc previously described a pure-Rust JS engine surface; now reflects the actual `deno_core` sandbox capabilities (full DOM API, events, console capture).
+
 ## [1.6.3] - 2026-04-25
 
 ### Added
