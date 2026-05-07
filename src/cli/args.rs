@@ -28,6 +28,16 @@ pub enum Commands {
         output: OutputFormat,
     },
 
+    /// Search the web using the configured search engine and output as markdown or JSON
+    Search {
+        /// Search query
+        query: String,
+
+        /// Output format
+        #[arg(long, default_value = "text", value_enum)]
+        output: OutputFormat,
+    },
+
     /// Process commands from a JSONL file and write results to a JSONL file
     Batch {
         /// Path to input commands JSONL file

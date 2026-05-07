@@ -12,7 +12,7 @@ use cli::args::{Cli, Commands, McpTransport, OutputFormat};
 use cli::batch::run_batch;
 use cli::watch::run_watch;
 use core::config::{Config, PersistenceMode};
-use core::page::HttpMethod;
+use core::page::{FetchOptions, HttpMethod};
 use core::session_store::{self, InMemoryStore};
 use service::service::BrowserService;
 
@@ -26,6 +26,52 @@ fn create_store(config: &Config) -> Box<dyn session_store::SessionStore> {
             eprintln!("Error creating session store: {e}");
             process::exit(1);
         }
+    }
+}
+
+// Clearing start_url avoids an auto-fetch on init that the one-shot
+// caller would immediately follow with its own fetch.
+async fn make_one_shot_service(mut config: Config) -> BrowserService {
+    config.session.start_url = None;
+    let store: Box<dyn session_store::SessionStore> = Box::new(InMemoryStore);
+    match BrowserService::new(config, store).await {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Error initializing service: {e}");
+            process::exit(1);
+        }
+    }
+}
+
+async fn fetch_and_print(
+    service: &mut BrowserService,
+    url: &str,
+    mut options: FetchOptions,
+    output: OutputFormat,
+    error_context: &str,
+) {
+    if matches!(output, OutputFormat::Json) {
+        options.compact_links = true;
+    }
+    let result = match service
+        .fetch(url, &HttpMethod::Get, &HashMap::new(), None, None, &options)
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("Error {error_context}: {e}");
+            process::exit(1);
+        }
+    };
+    match output {
+        OutputFormat::Text => println!("{}", result.markdown),
+        OutputFormat::Json => match serde_json::to_string_pretty(&result) {
+            Ok(json) => println!("{json}"),
+            Err(e) => {
+                eprintln!("Error serializing result: {e}");
+                process::exit(1);
+            }
+        },
     }
 }
 
@@ -47,52 +93,18 @@ async fn main() {
 
     match cli.command {
         Commands::Fetch { url, output } => {
-            // One-shot fetch: always in-memory, skip start_url
-            config.session.start_url = None;
-
-            let store: Box<dyn session_store::SessionStore> = Box::new(InMemoryStore);
-            let mut service = match BrowserService::new(config, store).await {
-                Ok(s) => s,
-                Err(e) => {
-                    eprintln!("Error initializing service: {e}");
-                    process::exit(1);
-                }
-            };
-
+            let mut service = make_one_shot_service(config).await;
+            let options = service.default_fetch_options();
+            let ctx = format!("fetching {url}");
+            fetch_and_print(&mut service, &url, options, output, &ctx).await;
+        }
+        Commands::Search { query, output } => {
+            let mut service = make_one_shot_service(config).await;
+            let url = service.search_url(&query);
             let mut options = service.default_fetch_options();
-            if matches!(output, OutputFormat::Json) {
-                options.compact_links = true;
-            }
-            let result = match service
-                .fetch(
-                    &url,
-                    &HttpMethod::Get,
-                    &HashMap::new(),
-                    None,
-                    None,
-                    &options,
-                )
-                .await
-            {
-                Ok(r) => r,
-                Err(e) => {
-                    eprintln!("Error fetching {url}: {e}");
-                    process::exit(1);
-                }
-            };
-
-            match output {
-                OutputFormat::Text => {
-                    println!("{}", result.markdown);
-                }
-                OutputFormat::Json => match serde_json::to_string_pretty(&result) {
-                    Ok(json) => println!("{json}"),
-                    Err(e) => {
-                        eprintln!("Error serializing result: {e}");
-                        process::exit(1);
-                    }
-                },
-            }
+            options.show_selectors_first = false;
+            let ctx = format!("searching for {query:?}");
+            fetch_and_print(&mut service, &url, options, output, &ctx).await;
         }
         Commands::Batch { input, output } => {
             // Batch mode: always in-memory
