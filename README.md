@@ -98,6 +98,16 @@ This domain is for use in documentation examples without needing permission.
 [Learn more](https://iana.org/domains/example)
 ```
 
+### CLI: one-shot search
+
+Search the web using the configured search engine:
+
+```bash
+browser39 search "rust async traits"
+```
+
+Add `--output json` for structured results suitable for piping into other tools.
+
 ### CLI: agent integration (watch mode)
 
 Long-running subprocess that any language can talk to via JSONL files:
@@ -208,6 +218,7 @@ Auth profile 'github' saved
 | JSONL watch | `browser39 watch commands.jsonl` | Any language, long-running agent IPC |
 | JSONL batch | `browser39 batch commands.jsonl` | One-shot scripted operations |
 | CLI fetch | `browser39 fetch <url>` | Quick page retrieval, shell scripts |
+| CLI search | `browser39 search <query>` | Quick web search from shell scripts |
 
 ## Configuration
 
