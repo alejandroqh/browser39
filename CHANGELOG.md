@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.7.1] - 2026-05-07
+
+### Added
+
+- **`browser39 search <query>` CLI command** — one-shot web search using the configured search engine, output as markdown (default) or JSON via `--output json`. Mirrors the ergonomics of `browser39 fetch` so agents can pipe search results into a shell pipeline without spinning up an MCP session.
+
+### Changed
+
+- One-shot CLI plumbing factored into shared `make_one_shot_service` and `fetch_and_print` helpers so `fetch` and `search` share session setup, output formatting, and error handling.
+
 ## [1.7.0] - 2026-04-29
 
 ### Added
