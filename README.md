@@ -126,6 +126,46 @@ Drop-in `web_search` and `visit_website` tool examples: **[Python](examples/brow
 
 See [docs/install-cli.md](docs/install-cli.md) for the full integration guide.
 
+### Rust library
+
+Embed browser39 directly in a Rust application — no subprocess, no IPC.
+
+```toml
+[dependencies]
+browser39 = "1.8"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+```
+
+```rust
+use std::collections::HashMap;
+
+use browser39::{BrowserService, Config, HttpMethod, InMemoryStore, SessionStore};
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let store: Box<dyn SessionStore> = Box::new(InMemoryStore);
+    let mut service = BrowserService::new(Config::default(), store).await?;
+
+    let options = service.default_fetch_options();
+    let page = service
+        .fetch(
+            "https://example.com",
+            &HttpMethod::Get,
+            &HashMap::new(),
+            None,
+            None,
+            &options,
+        )
+        .await?;
+
+    println!("{}", page.markdown);
+    Ok(())
+}
+```
+
+The crate root re-exports the common types: `BrowserService`, `Config`, `PersistenceMode`, `FetchOptions`, `HttpMethod`, `SessionStore`, `InMemoryStore`, `create_session_store`. Lower-level modules (`browser39::core`, `browser39::cli`, `browser39::mcp`) are also public if you need direct access to the HTML→Markdown engine, JSONL runner, or MCP server.
+
 ## Features
 
 ### Token optimization
@@ -219,6 +259,7 @@ Auth profile 'github' saved
 | JSONL batch | `browser39 batch commands.jsonl` | One-shot scripted operations |
 | CLI fetch | `browser39 fetch <url>` | Quick page retrieval, shell scripts |
 | CLI search | `browser39 search <query>` | Quick web search from shell scripts |
+| Rust library | `cargo add browser39` | Embed in Rust apps, no subprocess |
 
 ## Configuration
 
