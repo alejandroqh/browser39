@@ -45,6 +45,12 @@ pub struct CookieJar {
     store: RwLock<CookieStore>,
 }
 
+impl Default for CookieJar {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CookieJar {
     pub fn new() -> Self {
         Self {

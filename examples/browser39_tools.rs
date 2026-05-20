@@ -160,11 +160,12 @@ impl BrowserClient {
     }
 
     fn quit(&mut self) {
+        let commands_path = self.commands_path();
         if let Some(ref mut child) = self.process {
             if child.try_wait().ok().flatten().is_none() {
                 self.seq += 1;
                 let cmd = serde_json::json!({"id":"quit","action":"quit","v":1,"seq":self.seq});
-                if let Ok(mut f) = OpenOptions::new().append(true).open(self.commands_path()) {
+                if let Ok(mut f) = OpenOptions::new().append(true).open(&commands_path) {
                     let _ = writeln!(f, "{}", serde_json::to_string(&cmd).unwrap());
                 }
                 let _ = child.wait();

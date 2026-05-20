@@ -1,20 +1,16 @@
-mod cli;
-mod core;
-mod mcp;
-mod service;
-
 use std::collections::HashMap;
 use std::process;
 
 use clap::Parser;
 
-use cli::args::{Cli, Commands, McpTransport, OutputFormat};
-use cli::batch::run_batch;
-use cli::watch::run_watch;
-use core::config::{Config, PersistenceMode};
-use core::page::{FetchOptions, HttpMethod};
-use core::session_store::{self, InMemoryStore};
-use service::service::BrowserService;
+use browser39::cli::args::{Cli, Commands, McpTransport, OutputFormat};
+use browser39::cli::batch::run_batch;
+use browser39::cli::watch::run_watch;
+use browser39::core::config::{Config, PersistenceMode};
+use browser39::core::page::{FetchOptions, HttpMethod};
+use browser39::core::session_store::{self, InMemoryStore};
+use browser39::mcp;
+use browser39::service::service::BrowserService;
 
 fn create_store(config: &Config) -> Box<dyn session_store::SessionStore> {
     match session_store::create_session_store(

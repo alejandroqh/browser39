@@ -53,11 +53,10 @@ fn field_selector(tag: &str, id: &str, name: Option<&str>) -> String {
     if !id.is_empty() {
         return format!("#{id}");
     }
-    if let Some(n) = name {
-        if !n.is_empty() {
+    if let Some(n) = name
+        && !n.is_empty() {
             return format!("{tag}[name='{n}']");
         }
-    }
     tag.to_string()
 }
 
@@ -207,8 +206,8 @@ pub fn op_element_set_attribute(
     let ds = state.borrow::<DomState>();
     let mut doc = ds.doc.borrow_mut();
     let nid = nid_from_raw(nid_raw);
-    if let Some(mut node) = doc.tree.get_mut(nid) {
-        if let Node::Element(ref mut el) = *node.value() {
+    if let Some(mut node) = doc.tree.get_mut(nid)
+        && let Node::Element(ref mut el) = *node.value() {
             let qname = html5ever::QualName::new(
                 None,
                 html5ever::ns!(),
@@ -226,7 +225,6 @@ pub fn op_element_set_attribute(
                 el.attrs.push((qname, value.into()));
             }
         }
-    }
     *ds.dom_mutated.borrow_mut() = true;
 }
 
@@ -239,11 +237,10 @@ pub fn op_element_remove_attribute(
     let ds = state.borrow::<DomState>();
     let mut doc = ds.doc.borrow_mut();
     let nid = nid_from_raw(nid_raw);
-    if let Some(mut node) = doc.tree.get_mut(nid) {
-        if let Node::Element(ref mut el) = *node.value() {
+    if let Some(mut node) = doc.tree.get_mut(nid)
+        && let Node::Element(ref mut el) = *node.value() {
             el.attrs.retain(|a| a.0.local.as_ref() != attr);
         }
-    }
     *ds.dom_mutated.borrow_mut() = true;
 }
 
@@ -554,11 +551,10 @@ pub fn op_element_closest(
     };
     let mut current_id = nid_from_raw(nid_raw);
     loop {
-        if let Some(el) = resolve_element(&doc, current_id) {
-            if selector.matches(&el) {
+        if let Some(el) = resolve_element(&doc, current_id)
+            && selector.matches(&el) {
                 return nid_to_raw(current_id);
             }
-        }
         match doc.tree.get(current_id).and_then(|n| n.parent()) {
             Some(parent) if ElementRef::wrap(parent).is_some() => {
                 current_id = parent.id();
@@ -760,14 +756,13 @@ pub fn op_element_click(state: &OpState, #[smi] nid_raw: u32) {
                     // Find ancestor form
                     let mut current = doc.tree.get(nid);
                     while let Some(node) = current {
-                        if let Some(form) = ElementRef::wrap(node) {
-                            if form.value().name.local.as_ref() == "form" {
+                        if let Some(form) = ElementRef::wrap(node)
+                            && form.value().name.local.as_ref() == "form" {
                                 let sel = form_selector_for(&form);
                                 *ds.pending_nav.borrow_mut() =
                                     Some(PendingNavigation::FormSubmit { selector: sel });
                                 break;
                             }
-                        }
                         current = node.parent();
                     }
                 }
@@ -910,9 +905,9 @@ pub fn op_storage_clear(state: &OpState) {
 #[string]
 pub fn op_cookie_get(state: &OpState) -> String {
     let ds = state.borrow::<DomState>();
-    if let Some(ref jar) = ds.cookie_jar {
-        if let Some(ref url_str) = ds.current_url {
-            if let Ok(url) = url_str.parse::<reqwest::Url>() {
+    if let Some(ref jar) = ds.cookie_jar
+        && let Some(ref url_str) = ds.current_url
+            && let Ok(url) = url_str.parse::<reqwest::Url>() {
                 let domain = url.host_str().unwrap_or_default();
                 let cookies = jar.list_cookies(Some(domain));
                 return cookies
@@ -921,21 +916,17 @@ pub fn op_cookie_get(state: &OpState) -> String {
                     .collect::<Vec<_>>()
                     .join("; ");
             }
-        }
-    }
     String::new()
 }
 
 #[op2(fast)]
 pub fn op_cookie_set(state: &OpState, #[string] cookie_str: &str) {
     let ds = state.borrow::<DomState>();
-    if let Some(ref jar) = ds.cookie_jar {
-        if let Some(ref url_str) = ds.current_url {
-            if let Ok(url) = url_str.parse::<reqwest::Url>() {
+    if let Some(ref jar) = ds.cookie_jar
+        && let Some(ref url_str) = ds.current_url
+            && let Ok(url) = url_str.parse::<reqwest::Url>() {
                 jar.add_cookie_str(cookie_str, &url);
             }
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------

@@ -107,13 +107,11 @@ impl ParsedFeed {
                     if !trimmed.is_empty() {
                         assign_text(&mut channel, current_item.as_mut(), &stack, &local, trimmed);
                     }
-                    if local == "item" || local == "entry" {
-                        if let Some(item) = current_item.take() {
-                            if item.title.is_some() || item.link.is_some() {
+                    if (local == "item" || local == "entry")
+                        && let Some(item) = current_item.take()
+                            && (item.title.is_some() || item.link.is_some()) {
                                 items.push(item);
                             }
-                        }
-                    }
                     stack.pop();
                 }
                 Ok(Event::Text(t)) => {

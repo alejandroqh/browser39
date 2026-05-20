@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.8.0] - 2026-05-20
+
+### Added
+
+- **Rust library target** — `browser39` now ships as a library crate in addition to the CLI binary and MCP server. Downstream Rust projects can depend on it with `browser39 = "1.8"` and drive a headless session programmatically via `BrowserService`. The crate root re-exports the common entry points: `BrowserService`, `Config`, `PersistenceMode`, `FetchOptions`, `HttpMethod`, `SessionStore`, `InMemoryStore`, and `create_session_store`.
+- `src/lib.rs` exposing `cli`, `core`, `mcp`, and `service` as public modules for callers that need finer-grained access (custom session stores, alternate MCP transports, direct page rendering).
+
+### Changed
+
+- `src/main.rs` consumes the new lib crate instead of redeclaring its modules, so the bin and lib targets share a single compilation of `core`/`service`/`cli`/`mcp` rather than building each module twice.
+
+### Fixed
+
+- 11 `clippy::collapsible_if` warnings across `core::dom_script::ops` and `core::feed_to_md`, plus a `clippy::new_without_default` warning on `core::http_client::CookieJar` — `cargo clippy --lib --bin browser39` is now clean.
+
 ## [1.7.1] - 2026-05-07
 
 ### Added

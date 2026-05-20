@@ -1,6 +1,6 @@
 [package]
 name = "browser39"
-version = "1.7.1"
+version = "1.8.0"
 edition = "2024"
 description = "Headless web browser for AI agents"
 authors = ["Alejandro Quintanar"]
@@ -9,7 +9,7 @@ repository = "https://github.com/alejandroqh/browser39"
 homepage = "https://github.com/alejandroqh/browser39"
 readme = "README.md"
 keywords = ["browser", "ai", "mcp", "headless", "markdown"]
-categories = ["command-line-utilities", "web-programming"]
+categories = ["command-line-utilities", "web-programming", "web-programming::http-client"]
 exclude = [
     "dist/",
     "target/",
@@ -23,6 +23,10 @@ exclude = [
     "benchmark.sh",
     "bench/",
 ]
+
+[lib]
+name = "browser39"
+path = "src/lib.rs"
 
 [[bin]]
 name = "browser39"
