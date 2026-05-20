@@ -2,6 +2,8 @@
 
 ## [1.8.0] - 2026-05-20
 
+Thanks to [@janpauldahlke](https://github.com/janpauldahlke) for proposing the library target.
+
 ### Added
 
 - **Rust library target** — `browser39` now ships as a library crate in addition to the CLI binary and MCP server. Downstream Rust projects can depend on it with `browser39 = "1.8"` and drive a headless session programmatically via `BrowserService`. The crate root re-exports the common entry points: `BrowserService`, `Config`, `PersistenceMode`, `FetchOptions`, `HttpMethod`, `SessionStore`, `InMemoryStore`, and `create_session_store`.
