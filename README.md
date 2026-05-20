@@ -293,6 +293,8 @@ cargo fmt                # Format
 
 [@nathan-widjaja](https://github.com/nathan-widjaja)
 
+[@janpauldahlke](https://github.com/janpauldahlke)
+
 ## License
 
 Apache-2.0
