@@ -238,8 +238,8 @@ fn v8_to_json(
     } else {
         "object"
     };
-    let json = serde_v8::from_v8::<serde_json::Value>(scope, value)
-        .unwrap_or(serde_json::Value::Null);
+    let json =
+        serde_v8::from_v8::<serde_json::Value>(scope, value).unwrap_or(serde_json::Value::Null);
     (json, type_str.into())
 }
 
@@ -250,9 +250,9 @@ fn v8_to_json(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::http_client::CookieJar;
     use std::collections::HashMap;
     use std::sync::Arc;
-    use crate::core::http_client::CookieJar;
 
     const TEST_HTML: &str = r#"
     <!DOCTYPE html>
@@ -460,7 +460,11 @@ mod tests {
 
     #[test]
     fn test_dataset_camel_case() {
-        let result = run(TEST_HTML, "document.querySelector('#content').dataset.userName").unwrap();
+        let result = run(
+            TEST_HTML,
+            "document.querySelector('#content').dataset.userName",
+        )
+        .unwrap();
         assert_eq!(result.result, serde_json::json!("alice"));
     }
 
@@ -536,11 +540,7 @@ mod tests {
 
     #[test]
     fn test_element_matches() {
-        let result = run(
-            TEST_HTML,
-            "document.querySelector('h1').matches('h1')",
-        )
-        .unwrap();
+        let result = run(TEST_HTML, "document.querySelector('h1').matches('h1')").unwrap();
         assert_eq!(result.result, serde_json::json!(true));
     }
 
@@ -572,7 +572,12 @@ mod tests {
             test_ctx(),
         );
         assert!(effects.mutated_html.is_some());
-        assert!(effects.mutated_html.unwrap().contains("<span>Updated</span>"));
+        assert!(
+            effects
+                .mutated_html
+                .unwrap()
+                .contains("<span>Updated</span>")
+        );
     }
 
     // --- Form field value tests ---
@@ -645,11 +650,7 @@ mod tests {
 
     #[test]
     fn test_click_link_pending_nav() {
-        let result = run(
-            TEST_HTML,
-            "document.querySelector('a').click(); 'done'",
-        )
-        .unwrap();
+        let result = run(TEST_HTML, "document.querySelector('a').click(); 'done'").unwrap();
         assert_eq!(result.result, serde_json::json!("done"));
         assert!(result.pending_navigation.is_some());
     }

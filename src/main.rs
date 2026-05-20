@@ -6,14 +6,13 @@ use clap::Parser;
 use browser39::cli::args::{Cli, Commands, McpTransport, OutputFormat};
 use browser39::cli::batch::run_batch;
 use browser39::cli::watch::run_watch;
-use browser39::core::config::{Config, PersistenceMode};
-use browser39::core::page::{FetchOptions, HttpMethod};
-use browser39::core::session_store::{self, InMemoryStore};
-use browser39::mcp;
-use browser39::service::service::BrowserService;
+use browser39::{
+    BrowserService, Config, FetchOptions, HttpMethod, InMemoryStore, PersistenceMode, SessionStore,
+    create_session_store, mcp,
+};
 
-fn create_store(config: &Config) -> Box<dyn session_store::SessionStore> {
-    match session_store::create_session_store(
+fn create_store(config: &Config) -> Box<dyn SessionStore> {
+    match create_session_store(
         &config.session.persistence,
         config.session.session_path.as_deref(),
     ) {
@@ -29,7 +28,7 @@ fn create_store(config: &Config) -> Box<dyn session_store::SessionStore> {
 // caller would immediately follow with its own fetch.
 async fn make_one_shot_service(mut config: Config) -> BrowserService {
     config.session.start_url = None;
-    let store: Box<dyn session_store::SessionStore> = Box::new(InMemoryStore);
+    let store: Box<dyn SessionStore> = Box::new(InMemoryStore);
     match BrowserService::new(config, store).await {
         Ok(s) => s,
         Err(e) => {
@@ -104,7 +103,7 @@ async fn main() {
         }
         Commands::Batch { input, output } => {
             // Batch mode: always in-memory
-            let store: Box<dyn session_store::SessionStore> = Box::new(InMemoryStore);
+            let store: Box<dyn SessionStore> = Box::new(InMemoryStore);
             let mut service = match BrowserService::new(config, store).await {
                 Ok(s) => s,
                 Err(e) => {

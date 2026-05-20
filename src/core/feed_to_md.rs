@@ -109,9 +109,10 @@ impl ParsedFeed {
                     }
                     if (local == "item" || local == "entry")
                         && let Some(item) = current_item.take()
-                            && (item.title.is_some() || item.link.is_some()) {
-                                items.push(item);
-                            }
+                        && (item.title.is_some() || item.link.is_some())
+                    {
+                        items.push(item);
+                    }
                     stack.pop();
                 }
                 Ok(Event::Text(t)) => {
@@ -210,7 +211,12 @@ impl ParsedFeed {
 
             // Meta line: date · category
             let mut meta_parts: Vec<String> = Vec::new();
-            if let Some(d) = item.date.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            if let Some(d) = item
+                .date
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
                 meta_parts.push(d.to_string());
             }
             if let Some(c) = item
@@ -311,12 +317,7 @@ fn handle_attributes(
     }
 }
 
-fn assign_link(
-    channel: &mut ChannelInfo,
-    item: Option<&mut Item>,
-    stack: &[String],
-    href: String,
-) {
+fn assign_link(channel: &mut ChannelInfo, item: Option<&mut Item>, stack: &[String], href: String) {
     if let Some(item) = item {
         if item.link.is_none() {
             item.link = Some(href);

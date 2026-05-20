@@ -495,7 +495,10 @@ redact = false
             config.session.start_url,
             Some("https://dashboard.example.com".into())
         );
-        assert_eq!(config.session.user_agent, concat!("browser39/", env!("CARGO_PKG_VERSION")));
+        assert_eq!(
+            config.session.user_agent,
+            concat!("browser39/", env!("CARGO_PKG_VERSION"))
+        );
         assert_eq!(config.session.timeout_secs, 30);
         assert_eq!(config.session.max_redirects, 10);
         assert_eq!(config.session.defaults.max_tokens, Some(8000));
@@ -551,7 +554,10 @@ redact = false
     #[test]
     fn test_missing_config_file() {
         let config = Config::load(Some(Path::new("/nonexistent/path/config.toml"))).unwrap();
-        assert_eq!(config.session.user_agent, concat!("browser39/", env!("CARGO_PKG_VERSION")));
+        assert_eq!(
+            config.session.user_agent,
+            concat!("browser39/", env!("CARGO_PKG_VERSION"))
+        );
         assert_eq!(config.session.timeout_secs, 30);
         assert!(config.auth.is_empty());
         assert!(config.cookies.is_empty());
@@ -653,7 +659,10 @@ domains = ["api.example.com"]
     fn test_session_defaults() {
         let config: Config = toml::from_str("").unwrap();
         assert_eq!(config.session.start_url, None);
-        assert_eq!(config.session.user_agent, concat!("browser39/", env!("CARGO_PKG_VERSION")));
+        assert_eq!(
+            config.session.user_agent,
+            concat!("browser39/", env!("CARGO_PKG_VERSION"))
+        );
         assert_eq!(config.session.timeout_secs, 30);
         assert_eq!(config.session.max_redirects, 10);
         assert_eq!(config.session.defaults.max_tokens, None);

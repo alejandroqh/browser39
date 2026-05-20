@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use deno_core::{op2, OpState};
+use deno_core::{OpState, op2};
 use ego_tree::NodeId;
 use scraper::{ElementRef, Html, Node, Selector};
 
@@ -54,9 +54,10 @@ fn field_selector(tag: &str, id: &str, name: Option<&str>) -> String {
         return format!("#{id}");
     }
     if let Some(n) = name
-        && !n.is_empty() {
-            return format!("{tag}[name='{n}']");
-        }
+        && !n.is_empty()
+    {
+        return format!("{tag}[name='{n}']");
+    }
     tag.to_string()
 }
 
@@ -80,10 +81,7 @@ pub struct ElementInfo {
 
 #[op2]
 #[serde]
-pub fn op_element_info(
-    state: &OpState,
-    #[smi] nid_raw: u32,
-) -> Option<ElementInfo> {
+pub fn op_element_info(state: &OpState, #[smi] nid_raw: u32) -> Option<ElementInfo> {
     let ds = state.borrow::<DomState>();
     let doc = ds.doc.borrow();
     let el = resolve_element(&doc, nid_from_raw(nid_raw))?;
@@ -153,9 +151,7 @@ fn clear_children(doc: &mut Html, nid: NodeId) {
 fn replace_children_with_text(doc: &mut Html, nid: NodeId, text: &str) {
     clear_children(doc, nid);
     if let Some(mut node) = doc.tree.get_mut(nid) {
-        node.append(Node::Text(scraper::node::Text {
-            text: text.into(),
-        }));
+        node.append(Node::Text(scraper::node::Text { text: text.into() }));
     }
 }
 
@@ -192,8 +188,7 @@ pub fn op_element_has_attribute(
 ) -> bool {
     let ds = state.borrow::<DomState>();
     let doc = ds.doc.borrow();
-    resolve_element(&doc, nid_from_raw(nid_raw))
-        .is_some_and(|el| el.value().attr(attr).is_some())
+    resolve_element(&doc, nid_from_raw(nid_raw)).is_some_and(|el| el.value().attr(attr).is_some())
 }
 
 #[op2(fast)]
@@ -207,40 +202,35 @@ pub fn op_element_set_attribute(
     let mut doc = ds.doc.borrow_mut();
     let nid = nid_from_raw(nid_raw);
     if let Some(mut node) = doc.tree.get_mut(nid)
-        && let Node::Element(ref mut el) = *node.value() {
-            let qname = html5ever::QualName::new(
-                None,
-                html5ever::ns!(),
-                html5ever::LocalName::from(attr),
-            );
-            let mut found = false;
-            for a in el.attrs.iter_mut() {
-                if a.0.local.as_ref() == attr {
-                    a.1 = value.into();
-                    found = true;
-                    break;
-                }
-            }
-            if !found {
-                el.attrs.push((qname, value.into()));
+        && let Node::Element(ref mut el) = *node.value()
+    {
+        let qname =
+            html5ever::QualName::new(None, html5ever::ns!(), html5ever::LocalName::from(attr));
+        let mut found = false;
+        for a in el.attrs.iter_mut() {
+            if a.0.local.as_ref() == attr {
+                a.1 = value.into();
+                found = true;
+                break;
             }
         }
+        if !found {
+            el.attrs.push((qname, value.into()));
+        }
+    }
     *ds.dom_mutated.borrow_mut() = true;
 }
 
 #[op2(fast)]
-pub fn op_element_remove_attribute(
-    state: &OpState,
-    #[smi] nid_raw: u32,
-    #[string] attr: &str,
-) {
+pub fn op_element_remove_attribute(state: &OpState, #[smi] nid_raw: u32, #[string] attr: &str) {
     let ds = state.borrow::<DomState>();
     let mut doc = ds.doc.borrow_mut();
     let nid = nid_from_raw(nid_raw);
     if let Some(mut node) = doc.tree.get_mut(nid)
-        && let Node::Element(ref mut el) = *node.value() {
-            el.attrs.retain(|a| a.0.local.as_ref() != attr);
-        }
+        && let Node::Element(ref mut el) = *node.value()
+    {
+        el.attrs.retain(|a| a.0.local.as_ref() != attr);
+    }
     *ds.dom_mutated.borrow_mut() = true;
 }
 
@@ -355,7 +345,10 @@ pub fn op_element_next_sibling(
 ) -> (u32, bool) {
     let ds = state.borrow::<DomState>();
     let doc = ds.doc.borrow();
-    let mut sib = doc.tree.get(nid_from_raw(nid_raw)).and_then(|n| n.next_sibling());
+    let mut sib = doc
+        .tree
+        .get(nid_from_raw(nid_raw))
+        .and_then(|n| n.next_sibling());
     while let Some(s) = sib {
         if !element_only || ElementRef::wrap(s).is_some() {
             return (nid_to_raw(s.id()), s.value().is_element());
@@ -374,7 +367,10 @@ pub fn op_element_prev_sibling(
 ) -> (u32, bool) {
     let ds = state.borrow::<DomState>();
     let doc = ds.doc.borrow();
-    let mut sib = doc.tree.get(nid_from_raw(nid_raw)).and_then(|n| n.prev_sibling());
+    let mut sib = doc
+        .tree
+        .get(nid_from_raw(nid_raw))
+        .and_then(|n| n.prev_sibling());
     while let Some(s) = sib {
         if !element_only || ElementRef::wrap(s).is_some() {
             return (nid_to_raw(s.id()), s.value().is_element());
@@ -426,10 +422,7 @@ pub fn op_doc_get_element_by_id(state: &OpState, #[string] id: &str) -> u32 {
 
 #[op2]
 #[serde]
-pub fn op_doc_get_elements_by_class(
-    state: &OpState,
-    #[string] cls: &str,
-) -> Vec<u32> {
+pub fn op_doc_get_elements_by_class(state: &OpState, #[string] cls: &str) -> Vec<u32> {
     let sel_str: String = cls.split_whitespace().map(|c| format!(".{c}")).collect();
     let ds = state.borrow::<DomState>();
     let doc = ds.doc.borrow();
@@ -441,10 +434,7 @@ pub fn op_doc_get_elements_by_class(
 
 #[op2]
 #[serde]
-pub fn op_doc_get_elements_by_tag(
-    state: &OpState,
-    #[string] tag: &str,
-) -> Vec<u32> {
+pub fn op_doc_get_elements_by_tag(state: &OpState, #[string] tag: &str) -> Vec<u32> {
     let ds = state.borrow::<DomState>();
     let doc = ds.doc.borrow();
     Selector::parse(tag)
@@ -455,10 +445,7 @@ pub fn op_doc_get_elements_by_tag(
 
 #[op2]
 #[serde]
-pub fn op_doc_get_elements_by_name(
-    state: &OpState,
-    #[string] name: &str,
-) -> Vec<u32> {
+pub fn op_doc_get_elements_by_name(state: &OpState, #[string] name: &str) -> Vec<u32> {
     let sel_str = format!("[name=\"{}\"]", name.replace('"', "\\\""));
     let ds = state.borrow::<DomState>();
     let doc = ds.doc.borrow();
@@ -486,11 +473,7 @@ pub fn op_doc_title(state: &OpState) -> String {
 
 #[op2(fast)]
 #[smi]
-pub fn op_element_query_selector(
-    state: &OpState,
-    #[smi] nid_raw: u32,
-    #[string] sel: &str,
-) -> u32 {
+pub fn op_element_query_selector(state: &OpState, #[smi] nid_raw: u32, #[string] sel: &str) -> u32 {
     let ds = state.borrow::<DomState>();
     let doc = ds.doc.borrow();
     let parent = resolve_element(&doc, nid_from_raw(nid_raw));
@@ -523,11 +506,7 @@ pub fn op_element_query_selector_all(
 // ---------------------------------------------------------------------------
 
 #[op2(fast)]
-pub fn op_element_matches(
-    state: &OpState,
-    #[smi] nid_raw: u32,
-    #[string] sel: &str,
-) -> bool {
+pub fn op_element_matches(state: &OpState, #[smi] nid_raw: u32, #[string] sel: &str) -> bool {
     let ds = state.borrow::<DomState>();
     let doc = ds.doc.borrow();
     Selector::parse(sel)
@@ -538,11 +517,7 @@ pub fn op_element_matches(
 
 #[op2(fast)]
 #[smi]
-pub fn op_element_closest(
-    state: &OpState,
-    #[smi] nid_raw: u32,
-    #[string] sel: &str,
-) -> u32 {
+pub fn op_element_closest(state: &OpState, #[smi] nid_raw: u32, #[string] sel: &str) -> u32 {
     let ds = state.borrow::<DomState>();
     let doc = ds.doc.borrow();
     let selector = match Selector::parse(sel) {
@@ -552,9 +527,10 @@ pub fn op_element_closest(
     let mut current_id = nid_from_raw(nid_raw);
     loop {
         if let Some(el) = resolve_element(&doc, current_id)
-            && selector.matches(&el) {
-                return nid_to_raw(current_id);
-            }
+            && selector.matches(&el)
+        {
+            return nid_to_raw(current_id);
+        }
         match doc.tree.get(current_id).and_then(|n| n.parent()) {
             Some(parent) if ElementRef::wrap(parent).is_some() => {
                 current_id = parent.id();
@@ -565,11 +541,7 @@ pub fn op_element_closest(
 }
 
 #[op2(fast)]
-pub fn op_element_contains(
-    state: &OpState,
-    #[smi] nid_raw: u32,
-    #[smi] other_raw: u32,
-) -> bool {
+pub fn op_element_contains(state: &OpState, #[smi] nid_raw: u32, #[smi] other_raw: u32) -> bool {
     let ds = state.borrow::<DomState>();
     let doc = ds.doc.borrow();
     let target = nid_from_raw(nid_raw);
@@ -588,11 +560,7 @@ pub fn op_element_contains(
 // ---------------------------------------------------------------------------
 
 #[op2(fast)]
-pub fn op_element_set_text_content(
-    state: &OpState,
-    #[smi] nid_raw: u32,
-    #[string] text: &str,
-) {
+pub fn op_element_set_text_content(state: &OpState, #[smi] nid_raw: u32, #[string] text: &str) {
     let ds = state.borrow::<DomState>();
     let mut doc = ds.doc.borrow_mut();
     replace_children_with_text(&mut doc, nid_from_raw(nid_raw), text);
@@ -600,11 +568,7 @@ pub fn op_element_set_text_content(
 }
 
 #[op2(fast)]
-pub fn op_element_set_inner_html(
-    state: &OpState,
-    #[smi] nid_raw: u32,
-    #[string] html_str: &str,
-) {
+pub fn op_element_set_inner_html(state: &OpState, #[smi] nid_raw: u32, #[string] html_str: &str) {
     let ds = state.borrow::<DomState>();
     let mut doc = ds.doc.borrow_mut();
     let nid = nid_from_raw(nid_raw);
@@ -616,11 +580,7 @@ pub fn op_element_set_inner_html(
 }
 
 #[op2(fast)]
-pub fn op_element_append_child(
-    state: &OpState,
-    #[smi] parent_raw: u32,
-    #[smi] child_raw: u32,
-) {
+pub fn op_element_append_child(state: &OpState, #[smi] parent_raw: u32, #[smi] child_raw: u32) {
     let ds = state.borrow::<DomState>();
     let mut doc = ds.doc.borrow_mut();
     let child_nid = nid_from_raw(child_raw);
@@ -637,11 +597,7 @@ pub fn op_element_append_child(
 }
 
 #[op2(fast)]
-pub fn op_element_remove_child(
-    state: &OpState,
-    #[smi] _parent_raw: u32,
-    #[smi] child_raw: u32,
-) {
+pub fn op_element_remove_child(state: &OpState, #[smi] _parent_raw: u32, #[smi] child_raw: u32) {
     let ds = state.borrow::<DomState>();
     let mut doc = ds.doc.borrow_mut();
     if let Some(mut node) = doc.tree.get_mut(nid_from_raw(child_raw)) {
@@ -718,10 +674,8 @@ pub fn op_doc_create_text_node(state: &OpState, #[string] text: &str) -> u32 {
     let root_id = doc.tree.root().id();
     let new_nid = {
         let mut root = doc.tree.get_mut(root_id).unwrap();
-        root.append(Node::Text(scraper::node::Text {
-            text: text.into(),
-        }))
-        .id()
+        root.append(Node::Text(scraper::node::Text { text: text.into() }))
+            .id()
     };
     *ds.dom_mutated.borrow_mut() = true;
     nid_to_raw(new_nid)
@@ -757,12 +711,13 @@ pub fn op_element_click(state: &OpState, #[smi] nid_raw: u32) {
                     let mut current = doc.tree.get(nid);
                     while let Some(node) = current {
                         if let Some(form) = ElementRef::wrap(node)
-                            && form.value().name.local.as_ref() == "form" {
-                                let sel = form_selector_for(&form);
-                                *ds.pending_nav.borrow_mut() =
-                                    Some(PendingNavigation::FormSubmit { selector: sel });
-                                break;
-                            }
+                            && form.value().name.local.as_ref() == "form"
+                        {
+                            let sel = form_selector_for(&form);
+                            *ds.pending_nav.borrow_mut() =
+                                Some(PendingNavigation::FormSubmit { selector: sel });
+                            break;
+                        }
                         current = node.parent();
                     }
                 }
@@ -813,11 +768,7 @@ pub fn op_field_value_get(state: &OpState, #[smi] nid_raw: u32) -> String {
 }
 
 #[op2(fast)]
-pub fn op_field_value_set(
-    state: &OpState,
-    #[smi] nid_raw: u32,
-    #[string] value: &str,
-) {
+pub fn op_field_value_set(state: &OpState, #[smi] nid_raw: u32, #[string] value: &str) {
     let ds = state.borrow::<DomState>();
     let doc = ds.doc.borrow();
     let nid = nid_from_raw(nid_raw);
@@ -856,11 +807,7 @@ pub fn op_location_navigate(state: &OpState, #[string] url: &str) {
 // ---------------------------------------------------------------------------
 
 #[op2]
-pub fn op_console(
-    state: &OpState,
-    #[string] level: &str,
-    #[serde] args: Vec<String>,
-) {
+pub fn op_console(state: &OpState, #[string] level: &str, #[serde] args: Vec<String>) {
     let ds = state.borrow::<DomState>();
     let msg = format!("[{level}] {}", args.join(" "));
     ds.console_output.borrow_mut().push(msg);
@@ -907,15 +854,16 @@ pub fn op_cookie_get(state: &OpState) -> String {
     let ds = state.borrow::<DomState>();
     if let Some(ref jar) = ds.cookie_jar
         && let Some(ref url_str) = ds.current_url
-            && let Ok(url) = url_str.parse::<reqwest::Url>() {
-                let domain = url.host_str().unwrap_or_default();
-                let cookies = jar.list_cookies(Some(domain));
-                return cookies
-                    .iter()
-                    .map(|c| format!("{}={}", c.name, c.value))
-                    .collect::<Vec<_>>()
-                    .join("; ");
-            }
+        && let Ok(url) = url_str.parse::<reqwest::Url>()
+    {
+        let domain = url.host_str().unwrap_or_default();
+        let cookies = jar.list_cookies(Some(domain));
+        return cookies
+            .iter()
+            .map(|c| format!("{}={}", c.name, c.value))
+            .collect::<Vec<_>>()
+            .join("; ");
+    }
     String::new()
 }
 
@@ -924,9 +872,10 @@ pub fn op_cookie_set(state: &OpState, #[string] cookie_str: &str) {
     let ds = state.borrow::<DomState>();
     if let Some(ref jar) = ds.cookie_jar
         && let Some(ref url_str) = ds.current_url
-            && let Ok(url) = url_str.parse::<reqwest::Url>() {
-                jar.add_cookie_str(cookie_str, &url);
-            }
+        && let Ok(url) = url_str.parse::<reqwest::Url>()
+    {
+        jar.add_cookie_str(cookie_str, &url);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -947,8 +896,7 @@ pub fn op_atob(#[string] input: &str) -> Result<String, deno_error::JsErrorBox> 
     let decoded = base64::engine::general_purpose::STANDARD
         .decode(input.as_bytes())
         .map_err(|e| deno_error::JsErrorBox::type_error(format!("atob: {e}")))?;
-    String::from_utf8(decoded)
-        .map_err(|e| deno_error::JsErrorBox::type_error(format!("atob: {e}")))
+    String::from_utf8(decoded).map_err(|e| deno_error::JsErrorBox::type_error(format!("atob: {e}")))
 }
 
 // ---------------------------------------------------------------------------

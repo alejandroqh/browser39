@@ -166,8 +166,7 @@ Common failures: none typical. Empty result simply means no cookies in jar for t
         data_cmd(&self.cmd_tx, |tx| McpCommand::Cookies { params, tx }).await
     }
 
-    #[tool(
-        description = r#"Insert or update a cookie in the session cookie jar.
+    #[tool(description = r#"Insert or update a cookie in the session cookie jar.
 
 USE WHEN: priming auth state from a known token, replicating a Set-Cookie observed out of band, or testing cookie-driven behavior. NOT WHEN: the server already issued the cookie via Set-Cookie — browser39 stored it automatically.
 
@@ -175,8 +174,7 @@ Effect: local-mutate (cookie jar only; does not send a request).
 
 Common failures:
 - COOKIE_ERROR → invalid domain or malformed value; ensure `domain` matches the host you intend (no scheme, no port).
-- The cookie won't be sent → check `secure: true` requires HTTPS, and `domain` matches the request URL's host (or is a parent domain)."#
-    )]
+- The cookie won't be sent → check `secure: true` requires HTTPS, and `domain` matches the request URL's host (or is a parent domain)."#)]
     async fn browser39_set_cookie(
         &self,
         Parameters(params): Parameters<SetCookieParams>,
@@ -236,8 +234,7 @@ Common failures:
         data_cmd(&self.cmd_tx, |tx| McpCommand::StorageSet { params, tx }).await
     }
 
-    #[tool(
-        description = r#"Delete a localStorage key for an origin.
+    #[tool(description = r#"Delete a localStorage key for an origin.
 
 USE WHEN: clearing a stale or invalid client-side flag. NOT WHEN: clearing the entire origin's storage — use browser39_storage_clear.
 
@@ -245,8 +242,7 @@ Effect: local-mutate.
 
 Common failures:
 - NO_PAGE → no current page and no `origin`; pass `origin` or fetch a page first.
-- Returns deleted: false → key didn't exist; not an error."#
-    )]
+- Returns deleted: false → key didn't exist; not an error."#)]
     async fn browser39_storage_delete(
         &self,
         Parameters(params): Parameters<StorageDeleteParams>,
@@ -254,16 +250,14 @@ Common failures:
         data_cmd(&self.cmd_tx, |tx| McpCommand::StorageDelete { params, tx }).await
     }
 
-    #[tool(
-        description = r#"List every localStorage key/value pair for an origin.
+    #[tool(description = r#"List every localStorage key/value pair for an origin.
 
 USE WHEN: discovering what an SPA stores client-side; debugging a flow that depends on storage. NOT WHEN: you already know the key — use browser39_storage_get.
 
 Effect: read. Sensitive values are masked.
 
 Common failures:
-- NO_PAGE → no current page and no `origin`; pass `origin` explicitly or fetch first."#
-    )]
+- NO_PAGE → no current page and no `origin`; pass `origin` explicitly or fetch first."#)]
     async fn browser39_storage_list(
         &self,
         Parameters(params): Parameters<StorageListParams>,
@@ -271,16 +265,14 @@ Common failures:
         data_cmd(&self.cmd_tx, |tx| McpCommand::StorageList { params, tx }).await
     }
 
-    #[tool(
-        description = r#"Wipe all localStorage entries for an origin.
+    #[tool(description = r#"Wipe all localStorage entries for an origin.
 
 USE WHEN: resetting an app's client state to defaults. NOT WHEN: only one key is stale — use browser39_storage_delete to avoid losing other state.
 
 Effect: local-mutate. Returns the count of cleared entries.
 
 Common failures:
-- NO_PAGE → no current page and no `origin`; pass `origin` or fetch a page first."#
-    )]
+- NO_PAGE → no current page and no `origin`; pass `origin` or fetch a page first."#)]
     async fn browser39_storage_clear(
         &self,
         Parameters(params): Parameters<StorageClearParams>,
@@ -425,16 +417,14 @@ Common failures:
         data_cmd(&self.cmd_tx, |tx| McpCommand::ConfigAuthSet { params, tx }).await
     }
 
-    #[tool(
-        description = r#"Delete an auth profile by name.
+    #[tool(description = r#"Delete an auth profile by name.
 
 USE WHEN: rotating credentials, or removing access to a service. NOT WHEN: you want to keep the profile but disable temporarily — clear the `value`/`value_env` field with browser39_config_auth_set instead.
 
 Effect: local-mutate.
 
 Common failures:
-- profile not found → message names the missing profile; use browser39_config_show to list current profiles."#
-    )]
+- profile not found → message names the missing profile; use browser39_config_show to list current profiles."#)]
     async fn browser39_config_auth_delete(
         &self,
         Parameters(params): Parameters<ConfigAuthDeleteParams>,
@@ -806,8 +796,7 @@ mod tests {
     #[test]
     fn tool_schema_snapshot() {
         let router = McpServer::tool_router();
-        let mut tools: Vec<&rmcp::model::Tool> =
-            router.map.values().map(|r| &r.attr).collect();
+        let mut tools: Vec<&rmcp::model::Tool> = router.map.values().map(|r| &r.attr).collect();
         tools.sort_by(|a, b| a.name.cmp(&b.name));
 
         let mut rendered = String::new();
@@ -817,8 +806,8 @@ mod tests {
                 rendered.push_str(desc.as_ref());
                 rendered.push_str("\n\n");
             }
-            let schema = serde_json::to_string_pretty(&*tool.input_schema)
-                .expect("input_schema serializes");
+            let schema =
+                serde_json::to_string_pretty(&*tool.input_schema).expect("input_schema serializes");
             rendered.push_str("```json\n");
             rendered.push_str(&schema);
             rendered.push_str("\n```\n\n");
