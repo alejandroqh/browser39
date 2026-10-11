@@ -32,8 +32,6 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ClickParams",
-  "type": "object",
   "properties": {
     "index": {
       "description": "Link index from `browser39_links` output. Pass either `index` or `text`,\nnot both — `index` is unambiguous and preferred when available.",
@@ -60,7 +58,8 @@ Common failures:
       "format": "uint64",
       "minimum": 0
     }
-  }
+  },
+  "type": "object"
 }
 ```
 
@@ -78,17 +77,16 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ConfigAuthDeleteParams",
+  "required": [
+    "name"
+  ],
   "type": "object",
   "properties": {
     "name": {
       "description": "Auth profile name to delete",
       "type": "string"
     }
-  },
-  "required": [
-    "name"
-  ]
+  }
 }
 ```
 
@@ -107,7 +105,11 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ConfigAuthSetParams",
+  "required": [
+    "name",
+    "header",
+    "domains"
+  ],
   "type": "object",
   "properties": {
     "name": {
@@ -146,12 +148,7 @@ Common failures:
         "type": "string"
       }
     }
-  },
-  "required": [
-    "name",
-    "header",
-    "domains"
-  ]
+  }
 }
 ```
 
@@ -169,7 +166,10 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ConfigCookieDeleteParams",
+  "required": [
+    "name",
+    "domain"
+  ],
   "type": "object",
   "properties": {
     "name": {
@@ -180,11 +180,7 @@ Common failures:
       "description": "Cookie domain",
       "type": "string"
     }
-  },
-  "required": [
-    "name",
-    "domain"
-  ]
+  }
 }
 ```
 
@@ -202,7 +198,10 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ConfigCookieSetParams",
+  "required": [
+    "name",
+    "domain"
+  ],
   "type": "object",
   "properties": {
     "name": {
@@ -249,11 +248,7 @@ Common failures:
       "type": "boolean",
       "default": false
     }
-  },
-  "required": [
-    "name",
-    "domain"
-  ]
+  }
 }
 ```
 
@@ -269,7 +264,9 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ConfigHeaderDeleteParams",
+  "required": [
+    "domains"
+  ],
   "type": "object",
   "properties": {
     "domains": {
@@ -279,10 +276,7 @@ Common failures:
         "type": "string"
       }
     }
-  },
-  "required": [
-    "domains"
-  ]
+  }
 }
 ```
 
@@ -300,7 +294,10 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ConfigHeaderSetParams",
+  "required": [
+    "domains",
+    "values"
+  ],
   "type": "object",
   "properties": {
     "domains": {
@@ -317,11 +314,7 @@ Common failures:
         "type": "string"
       }
     }
-  },
-  "required": [
-    "domains",
-    "values"
-  ]
+  }
 }
 ```
 
@@ -341,7 +334,10 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ConfigSetParams",
+  "required": [
+    "key",
+    "value"
+  ],
   "type": "object",
   "properties": {
     "key": {
@@ -352,11 +348,7 @@ Common failures:
       "description": "New value (as string; parsed to the appropriate type)",
       "type": "string"
     }
-  },
-  "required": [
-    "key",
-    "value"
-  ]
+  }
 }
 ```
 
@@ -374,8 +366,6 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ConfigShowParams",
-  "type": "object",
   "properties": {
     "section": {
       "description": "Config section to show. Options: session, search, auth, cookies, storage, headers, security.\nIf omitted, shows all sections.",
@@ -384,7 +374,8 @@ Common failures:
         "null"
       ]
     }
-  }
+  },
+  "type": "object"
 }
 ```
 
@@ -400,7 +391,10 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ConfigStorageDeleteParams",
+  "required": [
+    "origin",
+    "key"
+  ],
   "type": "object",
   "properties": {
     "origin": {
@@ -411,11 +405,7 @@ Common failures:
       "description": "Storage key",
       "type": "string"
     }
-  },
-  "required": [
-    "origin",
-    "key"
-  ]
+  }
 }
 ```
 
@@ -433,7 +423,10 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ConfigStorageSetParams",
+  "required": [
+    "origin",
+    "key"
+  ],
   "type": "object",
   "properties": {
     "origin": {
@@ -463,11 +456,7 @@ Common failures:
       "type": "boolean",
       "default": false
     }
-  },
-  "required": [
-    "origin",
-    "key"
-  ]
+  }
 }
 ```
 
@@ -484,8 +473,6 @@ Common failures: none typical. Empty result simply means no cookies in jar for t
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "CookiesParams",
-  "type": "object",
   "properties": {
     "domain": {
       "description": "Filter cookies by domain",
@@ -494,7 +481,8 @@ Common failures: none typical. Empty result simply means no cookies in jar for t
         "null"
       ]
     }
-  }
+  },
+  "type": "object"
 }
 ```
 
@@ -512,7 +500,10 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "DeleteCookieParams",
+  "required": [
+    "name",
+    "domain"
+  ],
   "type": "object",
   "properties": {
     "name": {
@@ -523,11 +514,7 @@ Common failures:
       "description": "Domain of the cookie to delete",
       "type": "string"
     }
-  },
-  "required": [
-    "name",
-    "domain"
-  ]
+  }
 }
 ```
 
@@ -551,8 +538,6 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "DomQueryParams",
-  "type": "object",
   "properties": {
     "selector": {
       "description": "CSS selector matching one or more elements. Mutually exclusive with `script`.\nCSS3 only — no XPath, no `:contains()`; for visible-text matching, use a\n`script` with `Array.from(...).find(el => el.textContent.includes(...))`.\nSee docs/selectors.md.",
@@ -575,7 +560,8 @@ Common failures:
         "null"
       ]
     }
-  }
+  },
+  "type": "object"
 }
 ```
 
@@ -600,7 +586,18 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "FetchParams",
+  "$defs": {
+    "HttpMethod": {
+      "type": "string",
+      "enum": [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE"
+      ]
+    }
+  },
   "type": "object",
   "properties": {
     "url": {
@@ -677,19 +674,7 @@ Common failures:
   },
   "required": [
     "url"
-  ],
-  "$defs": {
-    "HttpMethod": {
-      "type": "string",
-      "enum": [
-        "GET",
-        "POST",
-        "PUT",
-        "PATCH",
-        "DELETE"
-      ]
-    }
-  }
+  ]
 }
 ```
 
@@ -714,7 +699,25 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "FillParams",
+  "$defs": {
+    "FillFieldParam": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "description": "CSS selector for the form field (must resolve to an `<input>`, `<textarea>`,\nor `<select>`). See docs/selectors.md.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Value to fill. For passwords or tokens, prefer a secret handle\n(`${browser39_secret_N}`) so the value never enters the conversation.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "selector",
+        "value"
+      ]
+    }
+  },
   "type": "object",
   "properties": {
     "selector": {
@@ -740,25 +743,6 @@ Common failures:
       "items": {
         "$ref": "#/$defs/FillFieldParam"
       }
-    }
-  },
-  "$defs": {
-    "FillFieldParam": {
-      "type": "object",
-      "properties": {
-        "selector": {
-          "description": "CSS selector for the form field (must resolve to an `<input>`, `<textarea>`,\nor `<select>`). See docs/selectors.md.",
-          "type": "string"
-        },
-        "value": {
-          "description": "Value to fill. For passwords or tokens, prefer a secret handle\n(`${browser39_secret_N}`) so the value never enters the conversation.",
-          "type": "string"
-        }
-      },
-      "required": [
-        "selector",
-        "value"
-      ]
     }
   }
 }
@@ -795,8 +779,6 @@ Common failures: none typical. Empty `entries` simply means no matches (or no hi
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "HistoryParams",
-  "type": "object",
   "properties": {
     "query": {
       "description": "Text to search for in URLs and titles. If omitted, lists recent entries.",
@@ -814,7 +796,8 @@ Common failures: none typical. Empty `entries` simply means no matches (or no hi
       "format": "uint",
       "minimum": 0
     }
-  }
+  },
+  "type": "object"
 }
 ```
 
@@ -868,7 +851,9 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "SearchParams",
+  "required": [
+    "query"
+  ],
   "type": "object",
   "properties": {
     "query": {
@@ -884,10 +869,7 @@ Common failures:
       "format": "uint64",
       "minimum": 0
     }
-  },
-  "required": [
-    "query"
-  ]
+  }
 }
 ```
 
@@ -906,7 +888,11 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "SetCookieParams",
+  "required": [
+    "name",
+    "value",
+    "domain"
+  ],
   "type": "object",
   "properties": {
     "name": {
@@ -947,12 +933,7 @@ Common failures:
       "format": "uint64",
       "minimum": 0
     }
-  },
-  "required": [
-    "name",
-    "value",
-    "domain"
-  ]
+  }
 }
 ```
 
@@ -970,8 +951,6 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "StorageClearParams",
-  "type": "object",
   "properties": {
     "origin": {
       "description": "Origin (scheme://host:port). Defaults to current page origin.",
@@ -980,7 +959,8 @@ Common failures:
         "null"
       ]
     }
-  }
+  },
+  "type": "object"
 }
 ```
 
@@ -999,7 +979,9 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "StorageDeleteParams",
+  "required": [
+    "key"
+  ],
   "type": "object",
   "properties": {
     "key": {
@@ -1013,10 +995,7 @@ Common failures:
         "null"
       ]
     }
-  },
-  "required": [
-    "key"
-  ]
+  }
 }
 ```
 
@@ -1035,7 +1014,9 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "StorageGetParams",
+  "required": [
+    "key"
+  ],
   "type": "object",
   "properties": {
     "key": {
@@ -1049,10 +1030,7 @@ Common failures:
         "null"
       ]
     }
-  },
-  "required": [
-    "key"
-  ]
+  }
 }
 ```
 
@@ -1070,8 +1048,6 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "StorageListParams",
-  "type": "object",
   "properties": {
     "origin": {
       "description": "Origin (scheme://host:port). Defaults to current page origin.",
@@ -1080,7 +1056,8 @@ Common failures:
         "null"
       ]
     }
-  }
+  },
+  "type": "object"
 }
 ```
 
@@ -1098,7 +1075,10 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "StorageSetParams",
+  "required": [
+    "key",
+    "value"
+  ],
   "type": "object",
   "properties": {
     "key": {
@@ -1116,11 +1096,7 @@ Common failures:
         "null"
       ]
     }
-  },
-  "required": [
-    "key",
-    "value"
-  ]
+  }
 }
 ```
 
@@ -1144,7 +1120,9 @@ Common failures:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "SubmitParams",
+  "required": [
+    "selector"
+  ],
   "type": "object",
   "properties": {
     "selector": {
@@ -1160,10 +1138,7 @@ Common failures:
       "format": "uint64",
       "minimum": 0
     }
-  },
-  "required": [
-    "selector"
-  ]
+  }
 }
 ```
 

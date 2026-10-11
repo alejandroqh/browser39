@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.9.0] - 2026-10-11
+
+Thanks to [@viirak](https://github.com/viirak) for reporting the `server/discover` crash.
+
+### Fixed
+
+- **MCP stdio server no longer exits on requests sent before `initialize`** ([#3](https://github.com/alejandroqh/browser39/issues/3)). Clients on the official Go SDK `>= 1.7` (e.g. Charm Crush) probe with `server/discover` first; browser39 now replies `-32601 Method not found` so they fall back to `initialize`, instead of exiting with rc=1. Other unknown methods get the same reply, known methods get `-32600 Server not initialized`, and stray notifications are ignored until the handshake completes.
+- A client closing stdin before initializing is now a clean shutdown (rc=0) rather than an `MCP server error`.
+
+### Changed
+
+- `rmcp` bumped from 1.3 to 1.8 (minimum now `1.8`). Tool input schemas no longer carry a top-level `title` (e.g. `"ClickParams"`); properties, types, and `required` fields are unchanged.
+- `#[tool_handler]` now points at the stored `tool_router` field, since rmcp-macros 1.8 otherwise rebuilds the router on every `tools/list` and `tools/call`.
+
 ## [1.8.0] - 2026-05-20
 
 Thanks to [@janpauldahlke](https://github.com/janpauldahlke) for proposing the library target.

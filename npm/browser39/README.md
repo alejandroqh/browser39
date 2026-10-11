@@ -98,6 +98,16 @@ This domain is for use in documentation examples without needing permission.
 [Learn more](https://iana.org/domains/example)
 ```
 
+### CLI: one-shot search
+
+Search the web using the configured search engine:
+
+```bash
+browser39 search "rust async traits"
+```
+
+Add `--output json` for structured results suitable for piping into other tools.
+
 ### CLI: agent integration (watch mode)
 
 Long-running subprocess that any language can talk to via JSONL files:
@@ -115,6 +125,46 @@ echo '{"id":"1","action":"fetch","v":1,"seq":1,"url":"https://example.com"}' >> 
 Drop-in `web_search` and `visit_website` tool examples: **[Python](examples/browser39_tools.py)** | **[TypeScript](examples/browser39_tools.ts)** | **[Rust](examples/browser39_tools.rs)**
 
 See [docs/install-cli.md](docs/install-cli.md) for the full integration guide.
+
+### Rust library
+
+Embed browser39 directly in a Rust application — no subprocess, no IPC.
+
+```toml
+[dependencies]
+browser39 = "1.8"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+```
+
+```rust
+use std::collections::HashMap;
+
+use browser39::{BrowserService, Config, HttpMethod, InMemoryStore, SessionStore};
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let store: Box<dyn SessionStore> = Box::new(InMemoryStore);
+    let mut service = BrowserService::new(Config::default(), store).await?;
+
+    let options = service.default_fetch_options();
+    let page = service
+        .fetch(
+            "https://example.com",
+            &HttpMethod::Get,
+            &HashMap::new(),
+            None,
+            None,
+            &options,
+        )
+        .await?;
+
+    println!("{}", page.markdown);
+    Ok(())
+}
+```
+
+The crate root re-exports the common types: `BrowserService`, `Config`, `PersistenceMode`, `FetchOptions`, `HttpMethod`, `SessionStore`, `InMemoryStore`, `create_session_store`. Lower-level modules (`browser39::core`, `browser39::cli`, `browser39::mcp`) are also public if you need direct access to the HTML→Markdown engine, JSONL runner, or MCP server.
 
 ## Features
 
@@ -208,6 +258,8 @@ Auth profile 'github' saved
 | JSONL watch | `browser39 watch commands.jsonl` | Any language, long-running agent IPC |
 | JSONL batch | `browser39 batch commands.jsonl` | One-shot scripted operations |
 | CLI fetch | `browser39 fetch <url>` | Quick page retrieval, shell scripts |
+| CLI search | `browser39 search <query>` | Quick web search from shell scripts |
+| Rust library | `cargo add browser39` | Embed in Rust apps, no subprocess |
 
 ## Configuration
 
@@ -240,6 +292,8 @@ cargo fmt                # Format
 ## Contributors
 
 [@nathan-widjaja](https://github.com/nathan-widjaja)
+
+[@janpauldahlke](https://github.com/janpauldahlke)
 
 ## License
 

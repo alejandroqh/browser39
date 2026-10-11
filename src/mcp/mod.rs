@@ -1,20 +1,30 @@
 mod commands;
 mod params;
+mod pre_init;
 mod server;
 
 use anyhow::Result;
 use rmcp::ServiceExt;
+use rmcp::service::ServerInitializeError;
+use rmcp::transport::async_rw::AsyncRwTransport;
 
 use crate::core::config::Config;
 use crate::core::session_store::{self, SessionStore};
 use commands::spawn_browser_service;
+use pre_init::PreInitGuard;
 use server::McpServer;
 
 pub async fn run_mcp_stdio(config: Config, store: Box<dyn SessionStore>) -> Result<()> {
     let cmd_tx = spawn_browser_service(config, store);
     let server = McpServer::new(cmd_tx);
-    let transport = rmcp::transport::io::stdio();
-    let handle = server.serve(transport).await.map_err(anyhow::Error::msg)?;
+    let (stdin, stdout) = rmcp::transport::io::stdio();
+    let transport = PreInitGuard::new(AsyncRwTransport::new_server(stdin, stdout));
+    let handle = match server.serve(transport).await {
+        Ok(handle) => handle,
+        // Client hung up before initializing (e.g. after a probe); a clean shutdown.
+        Err(ServerInitializeError::ConnectionClosed(_)) => return Ok(()),
+        Err(e) => return Err(anyhow::Error::msg(e)),
+    };
     handle.waiting().await?;
     Ok(())
 }

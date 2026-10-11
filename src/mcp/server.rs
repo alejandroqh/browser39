@@ -587,7 +587,7 @@ fn to_json(v: &impl serde::Serialize) -> Result<String, String> {
     serde_json::to_string_pretty(v).map_err(|e| format!("serialization failed: {e}"))
 }
 
-#[tool_handler]
+#[tool_handler(router = self.tool_router)]
 impl ServerHandler for McpServer {
     fn get_info(&self) -> ServerInfo {
         InitializeResult::new(
