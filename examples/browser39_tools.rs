@@ -144,14 +144,14 @@ impl BrowserClient {
             if let Ok(file) = File::open(self.results_path()) {
                 let lines: Vec<String> = BufReader::new(file)
                     .lines()
-                    .filter_map(|l| l.ok())
+                    .map_while(Result::ok)
                     .filter(|l| !l.trim().is_empty())
                     .collect();
                 for line in lines.iter().rev().take(2) {
-                    if let Ok(val) = serde_json::from_str::<Value>(line) {
-                        if val.get("seq").and_then(|s| s.as_u64()) == Some(seq) {
-                            return Ok(val);
-                        }
+                    if let Ok(val) = serde_json::from_str::<Value>(line)
+                        && val.get("seq").and_then(|s| s.as_u64()) == Some(seq)
+                    {
+                        return Ok(val);
                     }
                 }
             }
