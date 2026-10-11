@@ -77,7 +77,7 @@ fn parse_meta_refresh(content: &str) -> Option<String> {
 
 /// Resolve a possibly-relative href against a base URL string,
 /// always returning a full absolute URL.
-fn resolve_absolute(base: &str, href: &str) -> String {
+pub(crate) fn resolve_absolute(base: &str, href: &str) -> String {
     if href.starts_with("http://") || href.starts_with("https://") {
         return href.to_string();
     }

@@ -85,6 +85,16 @@ pub struct FetchOptions {
     pub show_selectors_first: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub download_path: Option<String>,
+    /// Keep the text of links whose URL already appeared (reusing the earlier
+    /// reference in compact mode) instead of dropping them. Not part of the
+    /// wire protocol; used by the terminal viewer.
+    #[serde(skip)]
+    pub keep_repeated_links: bool,
+    /// Without a `selector`, render only the page's main content region
+    /// (`main`, `article`, ...) when one is detected. Not part of the wire
+    /// protocol; used by the terminal viewer's reader mode.
+    #[serde(skip)]
+    pub main_content: bool,
 }
 
 impl Default for FetchOptions {
@@ -100,6 +110,8 @@ impl Default for FetchOptions {
             compact_links: false,
             show_selectors_first: true,
             download_path: None,
+            keep_repeated_links: false,
+            main_content: false,
         }
     }
 }
@@ -308,6 +320,8 @@ mod tests {
             compact_links: false,
             show_selectors_first: true,
             download_path: None,
+            keep_repeated_links: false,
+            main_content: false,
         };
         let json = serde_json::to_string(&opts).unwrap();
         let back: FetchOptions = serde_json::from_str(&json).unwrap();

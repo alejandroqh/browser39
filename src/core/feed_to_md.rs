@@ -191,10 +191,20 @@ impl ParsedFeed {
                 .map(|l| resolve_href(base.as_ref(), l.trim()))
                 .unwrap_or_default();
 
+            // Compact references number links by their position in `links`
+            let i = if options.compact_links {
+                links.len()
+            } else {
+                idx
+            };
             if options.include_links && !resolved_link.is_empty() {
-                let _ = writeln!(out, "## [{}]({})", title, resolved_link);
+                if options.compact_links {
+                    let _ = writeln!(out, "## [{}][{}]", title, i);
+                } else {
+                    let _ = writeln!(out, "## [{}]({})", title, resolved_link);
+                }
                 links.push(Link {
-                    i: idx,
+                    i,
                     text: title.to_string(),
                     href: resolved_link.clone(),
                 });
@@ -202,7 +212,7 @@ impl ParsedFeed {
                 let _ = writeln!(out, "## {}", title);
                 if !resolved_link.is_empty() {
                     links.push(Link {
-                        i: idx,
+                        i,
                         text: title.to_string(),
                         href: resolved_link,
                     });
@@ -567,6 +577,45 @@ mod tests {
         // Links collection still populated for the caller.
         assert_eq!(result.links.len(), 1);
         assert_eq!(result.links[0].href, "https://example.com/1");
+    }
+
+    #[test]
+    fn compact_links_use_numbered_references() {
+        let xml = r#"<?xml version="1.0"?>
+<rss version="2.0"><channel><title>X</title>
+<item><title>No link</title><description>d</description></item>
+<item><title>A</title><link>https://example.com/a</link></item>
+<item><title>B</title><link>https://example.com/b</link></item></channel></rss>"#;
+        let feed = ParsedFeed::parse(xml);
+        let opts = FetchOptions {
+            compact_links: true,
+            ..Default::default()
+        };
+        let result = feed.to_markdown_with_options(&opts, None);
+        assert!(
+            result.markdown.contains("## No link\n"),
+            "got: {}",
+            result.markdown
+        );
+        assert!(
+            result.markdown.contains("## [A][0]"),
+            "got: {}",
+            result.markdown
+        );
+        assert!(
+            result.markdown.contains("## [B][1]"),
+            "got: {}",
+            result.markdown
+        );
+        let hrefs: Vec<_> = result
+            .links
+            .iter()
+            .map(|l| (l.i, l.href.as_str()))
+            .collect();
+        assert_eq!(
+            hrefs,
+            [(0, "https://example.com/a"), (1, "https://example.com/b")]
+        );
     }
 
     #[test]

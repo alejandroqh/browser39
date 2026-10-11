@@ -5,6 +5,7 @@ use clap::Parser;
 
 use browser39::cli::args::{Cli, Commands, McpTransport, OutputFormat};
 use browser39::cli::batch::run_batch;
+use browser39::cli::browse::{BrowseArgs, run_browse};
 use browser39::cli::watch::run_watch;
 use browser39::{
     BrowserService, Config, FetchOptions, HttpMethod, InMemoryStore, PersistenceMode, SessionStore,
@@ -100,6 +101,24 @@ async fn main() {
             options.show_selectors_first = false;
             let ctx = format!("searching for {query:?}");
             fetch_and_print(&mut service, &url, options, output, &ctx).await;
+        }
+        Commands::Browse {
+            target,
+            full,
+            section,
+            print,
+        } => {
+            let mut service = make_one_shot_service(config).await;
+            let args = BrowseArgs {
+                target: target.join(" "),
+                reader: !full,
+                section,
+                print,
+            };
+            if let Err(e) = run_browse(&mut service, args).await {
+                eprintln!("Error: {e:#}");
+                process::exit(1);
+            }
         }
         Commands::Batch { input, output } => {
             // Batch mode: always in-memory

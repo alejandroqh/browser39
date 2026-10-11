@@ -38,6 +38,25 @@ pub enum Commands {
         output: OutputFormat,
     },
 
+    /// Read a page in an interactive terminal viewer (prints markdown when piped)
+    Browse {
+        /// URL, domain, or search terms
+        #[arg(required = true, num_args = 1..)]
+        target: Vec<String>,
+
+        /// Show the whole page instead of only its main content
+        #[arg(long)]
+        full: bool,
+
+        /// Open at (or print only) the section whose heading matches this text
+        #[arg(long, short)]
+        section: Option<String>,
+
+        /// Print markdown to stdout instead of opening the viewer
+        #[arg(long, short)]
+        print: bool,
+    },
+
     /// Process commands from a JSONL file and write results to a JSONL file
     Batch {
         /// Path to input commands JSONL file

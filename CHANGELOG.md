@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **`browser39 browse`** — an elinks-style terminal viewer for reading pages as markdown. Opens in reader mode (main content), with numbered links you follow by `Tab`/`Enter` or by number, back/forward history, find (`/`), a table of contents (`t`), and copying the current section (`y`), whole page (`Y`) or a URL (`c`) to the clipboard (pbcopy, wl-copy, xclip/xsel, or OSC 52 over SSH). `--section` opens at (or prints only) a section, `--full` shows the whole page, and output is plain markdown when piped or with `--print`. Copied/printed markdown ends with `[n]: url` reference definitions so links survive pasting.
+- `BrowserService::render_current` re-renders the current page with different options without refetching.
+
+### Fixed
+
+- HTML→markdown no longer glues words to the preceding inline element: `<b>Artemis II</b> (April` gave `**Artemis II**(April` and `<a>flyby</a> of` gave `[flyby](…)of`. Whitespace at the edges of `<b>`/`<em>`/`<a>` now sits outside the markers and brackets (`to<a> Home </a>now` gave `to[Home](…)now`).
+- Table cells no longer include the text of inline `<style>`/`<script>` elements (Wikipedia infoboxes leaked CSS), and `<br>`, list items, paragraphs, headings and other blocks inside a cell are separated by spaces instead of running together.
+- RSS/Atom feeds honour `compact_links`: items render as `## [title][n]` with numbering that matches the returned links list.
+- Links inside `<blockquote>` follow `compact_links` and link dedup like the rest of the page; in compact mode they were emitted inline and missing from the links list.
+- A very large `max_tokens` or `offset` no longer overflows when computing the truncation point.
+
 ## [1.9.0] - 2026-10-11
 
 Thanks to [@viirak](https://github.com/viirak) for reporting the `server/discover` crash.

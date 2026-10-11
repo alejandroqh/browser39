@@ -74,6 +74,8 @@ tokio-util = "0.7"
 tower-service = "0.3"
 aes-gcm = "0.10"
 base64 = "0.22"
+crossterm = "0.29"
+unicode-width = "0.2"
 
 [dev-dependencies]
 tempfile = "3"

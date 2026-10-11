@@ -12,7 +12,7 @@ use crate::core::dom_script::execute_script;
 use crate::core::error::ErrorCode;
 use crate::core::feed_to_md::{ParsedFeed, is_feed_content_type, looks_like_feed};
 use crate::core::form;
-use crate::core::html_to_md::ParsedHtml;
+use crate::core::html_to_md::{ConvertResult, ParsedHtml};
 use crate::core::http_client::{HttpClient, ResponseBody};
 use crate::core::page::*;
 use crate::core::redaction::{RedactionEngine, Transport};
@@ -72,9 +72,18 @@ pub fn classify_error(err: anyhow::Error) -> ServiceError {
 // --- Internal page state ---
 
 struct PageState {
+    kind: PageKind,
     html: String,
     links: Vec<Link>,
     result: PageResult,
+}
+
+/// What `PageState::html` holds, so the page can be re-rendered without refetching.
+enum PageKind {
+    Html,
+    Feed,
+    /// Binary content or a restored history stub: only the stored markdown exists.
+    Opaque,
 }
 
 // --- BrowserService ---
@@ -162,6 +171,7 @@ impl BrowserService {
             // Restore history as stub entries
             for entry in &snapshot.history {
                 history.push(PageState {
+                    kind: PageKind::Opaque,
                     html: String::new(),
                     links: Vec::new(),
                     result: PageResult {
@@ -329,6 +339,8 @@ impl BrowserService {
             compact_links: false,
             show_selectors_first: true,
             download_path: None,
+            keep_repeated_links: false,
+            main_content: false,
         }
     }
 
@@ -405,6 +417,7 @@ impl BrowserService {
                 content_selectors: None,
             };
             let state = PageState {
+                kind: PageKind::Opaque,
                 html: String::new(),
                 links: vec![],
                 result: result.clone(),
@@ -473,6 +486,7 @@ impl BrowserService {
                 content_selectors: None,
             };
             let state = PageState {
+                kind: PageKind::Feed,
                 html: final_html,
                 links,
                 result: result.clone(),
@@ -572,6 +586,7 @@ impl BrowserService {
         };
 
         let state = PageState {
+            kind: PageKind::Html,
             html: final_html,
             links,
             result: result.clone(),
@@ -986,6 +1001,21 @@ impl BrowserService {
     /// Returns the PageResult for the current page (for MCP resources).
     pub fn current_page_result(&self) -> Result<&PageResult> {
         Ok(&self.current_page()?.result)
+    }
+
+    /// Re-render the current page as markdown without refetching. `options`
+    /// is used as given (no config defaults merged in).
+    pub fn render_current(&self, options: &FetchOptions) -> Result<ConvertResult> {
+        let page = self.current_page()?;
+        let url = Some(page.result.url.as_str());
+        Ok(match page.kind {
+            PageKind::Html => ParsedHtml::parse(&page.html).to_markdown_with_options(options, url),
+            PageKind::Feed => ParsedFeed::parse(&page.html).to_markdown_with_options(options, url),
+            PageKind::Opaque => ConvertResult {
+                markdown: page.result.markdown.clone(),
+                ..Default::default()
+            },
+        })
     }
 
     // --- Internal helpers ---
@@ -1609,6 +1639,7 @@ mod tests {
             content_selectors: None,
         };
         let state = PageState {
+            kind: PageKind::Html,
             html: html.to_string(),
             links,
             result,

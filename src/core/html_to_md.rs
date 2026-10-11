@@ -1,6 +1,6 @@
 use ego_tree::NodeRef;
 use scraper::{Html, Node, Selector};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::mem;
 use std::sync::LazyLock;
@@ -42,6 +42,10 @@ const SELECTOR_MIN_TOKENS: u64 = 500;
 /// Estimate token count from byte length (4 bytes per token heuristic).
 pub(crate) fn estimate_tokens(byte_len: usize) -> u64 {
     (byte_len as u64) / 4
+}
+
+fn text_tokens(el: scraper::ElementRef<'_>) -> u64 {
+    estimate_tokens(el.text().map(str::len).sum())
 }
 
 /// Given a heading node, return the node from which to walk siblings.
@@ -236,39 +240,20 @@ impl ParsedHtml {
         );
         writer.base_url = base_url.and_then(|u| reqwest::Url::parse(u).ok());
         writer.compact_links = options.compact_links;
+        writer.keep_repeated_links = options.keep_repeated_links;
 
-        if let Some(ref sel_str) = options.selector {
-            if let Ok(sel) = Selector::parse(sel_str) {
-                let mut first = true;
-                for el in self.document.select(&sel) {
-                    if !first {
-                        ensure_double_newline(&mut writer.output);
-                    }
-                    first = false;
-
-                    let tag = el.value().name();
-                    if matches!(tag, "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
-                        // Heading auto-expand: render heading + siblings until next same-level heading.
-                        // If wrapped (e.g. div.mw-heading), walk from the wrapper's parent level.
-                        let section_start = heading_section_start(*el);
-                        // Render the heading (or its wrapper)
-                        writer.walk(section_start);
-                        // Walk subsequent siblings
-                        let mut sibling = section_start.next_sibling();
-                        while let Some(sib) = sibling {
-                            if contains_heading_at_or_above(sib, tag) {
-                                break;
-                            }
-                            writer.walk(sib);
-                            sibling = sib.next_sibling();
-                        }
-                    } else {
-                        writer.walk(*el);
-                    }
-                }
-            }
-        } else {
-            writer.walk_children(self.document.tree.root());
+        // An explicit selector wins; `main_content` falls back to the page's
+        // main region when one is detected.
+        let explicit = options.selector.as_deref().map(Selector::parse);
+        let main = match explicit {
+            None if options.main_content => self.main_content_selector(),
+            _ => None,
+        };
+        match (&explicit, main) {
+            (Some(Ok(sel)), _) | (None, Some(sel)) => writer.walk_selected(&self.document, sel),
+            // An invalid selector renders nothing
+            (Some(Err(_)), _) => {}
+            (None, None) => writer.walk_children(self.document.tree.root()),
         }
 
         let links = mem::take(&mut writer.collected_links);
@@ -290,7 +275,7 @@ impl ParsedHtml {
                 if seen_ids.contains(&node_id) {
                     continue;
                 }
-                let tokens = estimate_tokens(el.text().map(|t| t.len()).sum());
+                let tokens = text_tokens(el);
                 if tokens >= SELECTOR_MIN_TOKENS {
                     seen_ids.insert(node_id);
                     results.push(ContentSelector {
@@ -313,7 +298,7 @@ impl ParsedHtml {
                         continue;
                     }
                     if let Some(el_ref) = scraper::ElementRef::wrap(child) {
-                        let tokens = estimate_tokens(el_ref.text().map(|t| t.len()).sum());
+                        let tokens = text_tokens(el_ref);
                         if tokens >= SELECTOR_MIN_TOKENS {
                             seen_ids.insert(node_id);
                             results.push(ContentSelector {
@@ -360,6 +345,15 @@ impl ParsedHtml {
         results
     }
 
+    /// The highest-priority common content selector (`main`, `article`, ...)
+    /// that matches a meaningful amount of text — the page's "reader mode" region.
+    fn main_content_selector(&self) -> Option<&'static Selector> {
+        CONTENT_SELECTORS.iter().find_map(|(_, sel)| {
+            let el = self.document.select(sel).next()?;
+            (text_tokens(el) >= SELECTOR_MIN_TOKENS).then_some(sel)
+        })
+    }
+
     /// Quick token estimate from the body text without full markdown conversion.
     pub fn estimate_page_tokens(&self) -> u64 {
         if let Some(body) = self.document.select(&SEL_BODY).next() {
@@ -386,8 +380,10 @@ struct MarkdownWriter {
     include_links: bool,
     include_images: bool,
     compact_links: bool,
+    keep_repeated_links: bool,
     base_url: Option<reqwest::Url>,
-    seen_hrefs: HashSet<String>,
+    /// Emitted hrefs → their index in `collected_links` (0 outside compact mode).
+    seen_hrefs: HashMap<String, usize>,
     collected_links: Vec<Link>,
 }
 
@@ -402,8 +398,9 @@ impl MarkdownWriter {
             include_links,
             include_images,
             compact_links: false,
+            keep_repeated_links: false,
             base_url: None,
-            seen_hrefs: HashSet::new(),
+            seen_hrefs: HashMap::new(),
             collected_links: Vec::new(),
         }
     }
@@ -419,8 +416,15 @@ impl MarkdownWriter {
                 if self.in_pre {
                     self.output.push_str(s);
                 } else {
-                    // Collapse whitespace in normal flow
+                    // Collapse whitespace in normal flow. The collapse drops leading
+                    // whitespace, so restore one separating space when this text
+                    // abuts earlier inline content (e.g. "</b> (April", "</a> of").
                     let collapsed = collapse_inline_whitespace(s);
+                    if s.starts_with(char::is_whitespace)
+                        && self.output.ends_with(|c: char| !c.is_whitespace())
+                    {
+                        self.output.push(' ');
+                    }
                     if !collapsed.is_empty() {
                         self.output.push_str(&collapsed);
                     }
@@ -429,7 +433,7 @@ impl MarkdownWriter {
             Node::Element(el) => {
                 let tag = el.name.local.as_ref();
                 match tag {
-                    "script" | "style" | "noscript" => {}
+                    _ if is_skipped(tag) => {}
 
                     "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                         if self.in_link {
@@ -470,7 +474,10 @@ impl MarkdownWriter {
                             let resolved = self.resolve_href(href);
 
                             // Skip links whose URL was already emitted
-                            if !resolved.is_empty() && self.seen_hrefs.contains(&resolved) {
+                            if !self.keep_repeated_links
+                                && !resolved.is_empty()
+                                && self.seen_hrefs.contains_key(&resolved)
+                            {
                                 return;
                             }
 
@@ -526,29 +533,47 @@ impl MarkdownWriter {
                                     }
                                 }
                             }
-                            // Collapse link text to single line
+                            // Collapse link text to single line. Edge whitespace in the
+                            // source (`to<a> Home </a>now`) belongs outside the brackets.
                             let link_text = self.output[before_len + 1..].to_string();
+                            let lead = link_text.starts_with(char::is_whitespace);
+                            let trail = link_text.ends_with(char::is_whitespace);
                             let flat = link_text.split_whitespace().collect::<Vec<_>>().join(" ");
                             self.output.truncate(before_len + 1);
                             self.output.push_str(&flat);
 
-                            if self.compact_links {
-                                let idx = self.collected_links.len();
-                                self.collected_links.push(Link {
-                                    i: idx,
-                                    text: flat,
-                                    href: resolved.clone(),
-                                });
+                            let idx = if self.compact_links {
+                                let idx = match self.seen_hrefs.get(&resolved) {
+                                    Some(&idx) => idx,
+                                    None => {
+                                        self.collected_links.push(Link {
+                                            i: self.collected_links.len(),
+                                            text: flat,
+                                            href: resolved.clone(),
+                                        });
+                                        self.collected_links.len() - 1
+                                    }
+                                };
                                 let _ = write!(self.output, "][{idx}]");
+                                idx
                             } else {
                                 self.output.push_str("](");
                                 self.output.push_str(&resolved);
                                 self.output.push(')');
+                                0
+                            };
+                            if trail {
+                                self.output.push(' ');
+                            }
+                            if lead
+                                && self.output[..before_len].ends_with(|c: char| !c.is_whitespace())
+                            {
+                                self.output.insert(before_len, ' ');
                             }
 
                             // Record URL as seen only after successful emission
                             if !resolved.is_empty() {
-                                self.seen_hrefs.insert(resolved);
+                                self.seen_hrefs.insert(resolved, idx);
                             }
 
                             self.in_link = was_in_link;
@@ -557,31 +582,9 @@ impl MarkdownWriter {
                         }
                     }
 
-                    "strong" | "b" => {
-                        let before = self.output.len();
-                        self.output.push_str("**");
-                        self.walk_children(node);
-                        let content = &self.output[before + 2..];
-                        if content.trim().is_empty() {
-                            // Don't emit markers for empty bold (e.g. icon fonts)
-                            self.output.truncate(before);
-                        } else {
-                            self.output.push_str("**");
-                        }
-                    }
+                    "strong" | "b" => self.write_emphasis(node, "**"),
 
-                    "em" | "i" => {
-                        let before = self.output.len();
-                        self.output.push('*');
-                        self.walk_children(node);
-                        let content = &self.output[before + 1..];
-                        if content.trim().is_empty() {
-                            // Don't emit markers for empty italic (e.g. icon fonts)
-                            self.output.truncate(before);
-                        } else {
-                            self.output.push('*');
-                        }
-                    }
+                    "em" | "i" => self.write_emphasis(node, "*"),
 
                     "code" => {
                         if self.in_pre {
@@ -605,17 +608,13 @@ impl MarkdownWriter {
 
                     "blockquote" => {
                         ensure_newline(&mut self.output);
-                        // Render children to a separate buffer, then prefix each line
-                        let mut inner = MarkdownWriter::with_options(
-                            self.strip_nav,
-                            self.include_links,
-                            self.include_images,
-                        );
-                        inner.in_pre = self.in_pre;
-                        inner.in_link = self.in_link;
-                        inner.base_url = self.base_url.clone();
-                        inner.walk_children(node);
-                        let inner_text = inner.output;
+                        // Render children into a fresh buffer, then prefix each line.
+                        // Staying in this writer keeps link numbering and dedup intact.
+                        let outer = mem::take(&mut self.output);
+                        let lists = mem::take(&mut self.list_stack);
+                        self.walk_children(node);
+                        self.list_stack = lists;
+                        let inner_text = mem::replace(&mut self.output, outer);
                         for line in inner_text.lines() {
                             self.output.push_str("> ");
                             self.output.push_str(line);
@@ -715,6 +714,54 @@ impl MarkdownWriter {
         }
     }
 
+    /// Render every element matching `sel`.
+    fn walk_selected(&mut self, document: &Html, sel: &Selector) {
+        let mut first = true;
+        for el in document.select(sel) {
+            if !first {
+                ensure_double_newline(&mut self.output);
+            }
+            first = false;
+
+            let tag = el.value().name();
+            if matches!(tag, "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
+                // Heading auto-expand: render heading + siblings until next same-level heading.
+                // If wrapped (e.g. div.mw-heading), walk from the wrapper's parent level.
+                let section_start = heading_section_start(*el);
+                // Render the heading (or its wrapper)
+                self.walk(section_start);
+                // Walk subsequent siblings
+                let mut sibling = section_start.next_sibling();
+                while let Some(sib) = sibling {
+                    if contains_heading_at_or_above(sib, tag) {
+                        break;
+                    }
+                    self.walk(sib);
+                    sibling = sib.next_sibling();
+                }
+            } else {
+                self.walk(*el);
+            }
+        }
+    }
+
+    /// Wrap the node's content in `marker`, placing the markers around its
+    /// non-whitespace core ("** bold **" is not valid emphasis). Empty content
+    /// (e.g. icon fonts) emits nothing.
+    fn write_emphasis(&mut self, node: NodeRef<'_, Node>, marker: &str) {
+        let before = self.output.len();
+        self.walk_children(node);
+        let content = &self.output[before..];
+        if content.trim().is_empty() {
+            self.output.truncate(before);
+            return;
+        }
+        let start = before + (content.len() - content.trim_start().len());
+        let end = before + content.trim_end().len();
+        self.output.insert_str(end, marker);
+        self.output.insert_str(start, marker);
+    }
+
     fn write_table(&mut self, table_node: NodeRef<'_, Node>) {
         let rows = collect_table_rows(table_node);
         if rows.is_empty() {
@@ -801,12 +848,67 @@ fn collect_rows_recursive(node: NodeRef<'_, Node>, rows: &mut Vec<TableRow>, in_
 
 fn collect_cell_text(cell_node: NodeRef<'_, Node>) -> String {
     let mut text = String::new();
-    for n in cell_node.descendants() {
-        if let Node::Text(t) = n.value() {
-            text.push_str(t.text.as_ref());
+    push_cell_text(cell_node, &mut text);
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn push_cell_text(node: NodeRef<'_, Node>, text: &mut String) {
+    for child in node.children() {
+        match child.value() {
+            Node::Text(t) => text.push_str(t.text.as_ref()),
+            Node::Element(el) => match el.name.local.as_ref() {
+                tag if is_skipped(tag) => {}
+                // Line breaks and blocks separate words; whitespace is
+                // collapsed afterwards, so extra spaces are harmless.
+                tag if breaks_flow(tag) => {
+                    text.push(' ');
+                    push_cell_text(child, text);
+                    text.push(' ');
+                }
+                _ => push_cell_text(child, text),
+            },
+            _ => push_cell_text(child, text),
         }
     }
-    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Elements whose text is never page content.
+fn is_skipped(tag: &str) -> bool {
+    matches!(tag, "script" | "style" | "noscript")
+}
+
+/// Elements that end a run of inline text.
+fn breaks_flow(tag: &str) -> bool {
+    matches!(
+        tag,
+        "br" | "hr"
+            | "p"
+            | "div"
+            | "section"
+            | "article"
+            | "main"
+            | "header"
+            | "footer"
+            | "nav"
+            | "h1"
+            | "h2"
+            | "h3"
+            | "h4"
+            | "h5"
+            | "h6"
+            | "blockquote"
+            | "pre"
+            | "ul"
+            | "ol"
+            | "li"
+            | "dl"
+            | "dt"
+            | "dd"
+            | "table"
+            | "tr"
+            | "td"
+            | "th"
+    )
 }
 
 // --- Utility functions (ported from diana86) ---
@@ -830,7 +932,7 @@ pub(crate) fn collapse_inline_whitespace(s: &str) -> String {
 
 /// Reject control characters and Unicode bidi overrides that could
 /// craft visually misleading output or aid prompt injection.
-fn is_dangerous_char(c: char) -> bool {
+pub(crate) fn is_dangerous_char(c: char) -> bool {
     matches!(c,
         '\u{0000}'..='\u{0008}'
         | '\u{000B}'..='\u{000C}'
@@ -963,7 +1065,7 @@ pub(crate) fn truncate_markdown(
         };
     }
 
-    let offset_bytes = floor_char_boundary(markdown, (offset as usize) * 4);
+    let offset_bytes = floor_char_boundary(markdown, (offset as usize).saturating_mul(4));
 
     // Snap offset to next line boundary
     let start = if offset_bytes >= markdown.len() {
@@ -980,7 +1082,7 @@ pub(crate) fn truncate_markdown(
     let remaining = &markdown[start..];
 
     if let Some(max) = max_tokens {
-        let max_bytes = floor_char_boundary(remaining, (max as usize) * 4);
+        let max_bytes = floor_char_boundary(remaining, (max as usize).saturating_mul(4));
         if max_bytes >= remaining.len() {
             let tokens = estimate_tokens(remaining.len());
             return ConvertResult {
@@ -1286,6 +1388,94 @@ mod tests {
         assert_eq!(p.to_markdown(), "***bold italic***");
     }
 
+    #[test]
+    fn test_space_after_inline_element_kept() {
+        let p = ParsedHtml::parse(
+            r#"<p><b>Artemis II</b> (April) was a <a href="/f">flyby</a> of the Moon</p>"#,
+        );
+        assert_eq!(
+            p.to_markdown(),
+            "**Artemis II** (April) was a [flyby](/f) of the Moon"
+        );
+    }
+
+    #[test]
+    fn test_whitespace_only_node_between_inlines_kept() {
+        let p = ParsedHtml::parse("<li><span>1</span> <span>History</span></li>");
+        assert_eq!(p.to_markdown(), "- 1 History");
+    }
+
+    #[test]
+    fn test_edge_whitespace_hoisted_out_of_emphasis() {
+        let p = ParsedHtml::parse("<p>a<b> bold </b>b<em> it </em>c</p>");
+        assert_eq!(p.to_markdown(), "a **bold** b *it* c");
+    }
+
+    #[test]
+    fn test_edge_whitespace_hoisted_out_of_link() {
+        let p = ParsedHtml::parse(r#"<p>Go to<a href="/x"> Home </a>now</p>"#);
+        assert_eq!(p.to_markdown(), "Go to [Home](/x) now");
+    }
+
+    #[test]
+    fn test_blockquote_links_share_compact_numbering() {
+        let p = ParsedHtml::parse(
+            r#"<p><a href="/a">A</a></p><blockquote><a href="/q">Q</a> <a href="/a">again</a></blockquote>"#,
+        );
+        let opts = FetchOptions {
+            compact_links: true,
+            ..Default::default()
+        };
+        let r = p.to_markdown_with_options(&opts, None);
+        assert_eq!(r.markdown, "[A][0]\n\n> [Q][1]");
+        assert_eq!(r.links.len(), 2);
+    }
+
+    #[test]
+    fn test_main_content_option_narrows_to_main_region() {
+        let body = "word ".repeat(SELECTOR_MIN_TOKENS as usize);
+        let html = format!("<div id=menu>Menu</div><main><p>{body}</p></main>");
+        let p = ParsedHtml::parse(&html);
+        let reader = FetchOptions {
+            main_content: true,
+            ..Default::default()
+        };
+        let md = p.to_markdown_with_options(&reader, None).markdown;
+        assert!(!md.contains("Menu") && md.starts_with("word"));
+        // An explicit selector still wins
+        let explicit = FetchOptions {
+            selector: Some("#menu".into()),
+            ..reader
+        };
+        assert_eq!(p.to_markdown_with_options(&explicit, None).markdown, "Menu");
+    }
+
+    #[test]
+    fn test_truncate_with_huge_max_tokens_returns_everything() {
+        let r = truncate_markdown("abc\ndef", 0, Some(u64::MAX));
+        assert_eq!(r.markdown, "abc\ndef");
+        assert!(!r.truncated);
+    }
+
+    #[test]
+    fn test_table_cell_skips_style_and_script() {
+        let html = "<table><tr><th>K</th><td><style>.x{color:red}</style>V<script>f()</script></td></tr></table>";
+        let md = ParsedHtml::parse(html).to_markdown();
+        assert!(md.contains("| K | V |"), "{md}");
+    }
+
+    #[test]
+    fn test_table_cell_separates_lines_and_items() {
+        let html = "<table><tr><th>Crew</th><td><ul><li>Reid</li><li>Victor</li></ul></td></tr>\
+                    <tr><th>Craft</th><td>Integrity<br>ESM-2</td></tr></table>";
+        let md = ParsedHtml::parse(html).to_markdown();
+        assert!(md.contains("| Crew | Reid Victor |"), "{md}");
+        assert!(md.contains("| Craft | Integrity ESM-2 |"), "{md}");
+        let headings = "<table><tr><td><h4>Alpha</h4><h4>Beta</h4></td></tr></table>";
+        let md = ParsedHtml::parse(headings).to_markdown();
+        assert!(md.contains("| Alpha Beta |"), "{md}");
+    }
+
     // --- Icon font / empty formatting ---
 
     #[test]
@@ -1346,6 +1536,21 @@ mod tests {
         let md = p.to_markdown();
         assert!(md.contains("[First mention](https://example.com)"));
         assert!(!md.contains("Second mention"));
+    }
+
+    #[test]
+    fn test_keep_repeated_links_reuses_compact_index() {
+        let p = ParsedHtml::parse(
+            r#"<p><a href="/moon">Moon</a> <a href="/sun">Sun</a> and the <a href="/moon">lunar</a> sky</p>"#,
+        );
+        let opts = FetchOptions {
+            compact_links: true,
+            keep_repeated_links: true,
+            ..Default::default()
+        };
+        let r = p.to_markdown_with_options(&opts, None);
+        assert_eq!(r.markdown, "[Moon][0] [Sun][1] and the [lunar][0] sky");
+        assert_eq!(r.links.len(), 2);
     }
 
     #[test]

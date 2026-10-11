@@ -108,6 +108,24 @@ browser39 search "rust async traits"
 
 Add `--output json` for structured results suitable for piping into other tools.
 
+### CLI: read in the terminal
+
+An elinks-style viewer for humans: pages open in reader mode (main content only) as highlighted markdown with numbered links.
+
+```bash
+browser39 browse https://en.wikipedia.org/wiki/Artemis_II
+browser39 browse en.wikipedia.org/wiki/Artemis_II -s "lunar flyby"  # open at a section
+browser39 browse rust async traits                                  # not a URL: web search
+```
+
+Scroll with `j`/`k`/space, follow links with `Tab` + `Enter` or by typing their number, go back with `h`. Press `t` for the table of contents, `y` to copy the current section as markdown, `Y` for the whole page, `/` to find, `o` to open a URL or search, `r` to toggle reader/full page, `?` for all keys. Copied markdown includes `[n]: url` definitions for its links, so it pastes as valid markdown.
+
+When stdout isn't a terminal it prints the markdown instead, so it pipes cleanly:
+
+```bash
+browser39 browse https://en.wikipedia.org/wiki/Artemis_II -s crew | pbcopy
+```
+
 ### CLI: agent integration (watch mode)
 
 Long-running subprocess that any language can talk to via JSONL files:
