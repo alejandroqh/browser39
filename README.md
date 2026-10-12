@@ -132,7 +132,7 @@ Embed browser39 directly in a Rust application — no subprocess, no IPC.
 
 ```toml
 [dependencies]
-browser39 = "1.8"
+browser39 = "1.9"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 ```
