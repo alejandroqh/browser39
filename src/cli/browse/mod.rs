@@ -3,6 +3,7 @@
 
 mod clipboard;
 mod doc;
+mod table;
 mod ui;
 
 use std::collections::HashMap;

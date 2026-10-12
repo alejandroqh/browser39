@@ -18,7 +18,8 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use super::Browser;
 use super::clipboard;
-use super::doc::{Doc, Look, Row};
+use super::doc::{Doc, Look, Row, find_row};
+use super::table::Piece;
 
 const HELP: &[(&str, &str)] = &[
     ("j k ↓ ↑", "scroll one line"),
@@ -162,9 +163,7 @@ impl<'a> Ui<'a> {
 
     /// Display row containing byte `byte` of source line `line`.
     fn row_of(&self, line: usize, byte: usize) -> usize {
-        self.rows
-            .partition_point(|r| (r.line, r.start) <= (line, byte))
-            .saturating_sub(1)
+        find_row(&self.rows, line, byte)
     }
 
     fn ref_row(&self, i: usize) -> usize {
@@ -651,24 +650,29 @@ impl<'a> Ui<'a> {
                 }
                 let (_, looks, overlays) = cached.as_ref().expect("cached above");
                 let line = &self.doc.lines[row.line];
-                let mut seg = String::new();
-                let mut seg_style = None;
-                for (i, ch) in line[row.start..row.end].char_indices() {
-                    let b = row.start + i;
-                    let style = style_for(looks[b], overlays[b]);
-                    if seg_style != Some(style) {
-                        if let Some(s) = seg_style {
-                            queue!(
-                                buf,
-                                PrintStyledContent(StyledContent::new(s, mem::take(&mut seg)))
-                            )?;
+                let prose = [Piece::Text {
+                    bytes: row.start..row.end,
+                    strong: false,
+                }];
+                let mut chars = Vec::new();
+                for piece in row.grid.as_deref().unwrap_or(&prose) {
+                    match piece {
+                        Piece::Border(s) => chars.extend(s.chars().map(|c| (c, dim()))),
+                        Piece::Text { bytes, strong } => {
+                            for (i, ch) in line[bytes.clone()].char_indices() {
+                                let b = bytes.start + i;
+                                let look = Look {
+                                    bold: looks[b].bold || *strong,
+                                    ..looks[b]
+                                };
+                                chars.push((ch, style_for(look, overlays[b])));
+                            }
                         }
-                        seg_style = Some(style);
                     }
-                    seg.push(ch);
                 }
-                if let Some(s) = seg_style {
-                    queue!(buf, PrintStyledContent(StyledContent::new(s, seg)))?;
+                for run in chars.chunk_by(|a, b| a.1 == b.1) {
+                    let text: String = run.iter().map(|&(c, _)| c).collect();
+                    queue!(buf, PrintStyledContent(StyledContent::new(run[0].1, text)))?;
                 }
             } else {
                 queue!(buf, PrintStyledContent(StyledContent::new(dim(), "~")))?;

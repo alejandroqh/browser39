@@ -7,6 +7,7 @@ use std::ops::Range;
 
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
+use super::table::{self, Piece};
 use crate::core::html_to_md::is_dangerous_char;
 use crate::core::page::Link;
 use crate::core::url::resolve_absolute;
@@ -31,12 +32,41 @@ pub struct Heading {
     pub text: String,
 }
 
-/// A display row: a slice of one source line after soft wrapping.
-#[derive(Debug, Clone, Copy)]
+/// A display row: a slice of one source line after soft wrapping, or one
+/// line of a table drawn as a grid.
+#[derive(Debug, Clone)]
 pub struct Row {
     pub line: usize,
+    /// Bytes of `line` on this row; for a grid row, from its first to its
+    /// last cell text (borders sit at `start == end`).
     pub start: usize,
     pub end: usize,
+    /// Grid rows: what to draw in place of the `start..end` slice.
+    pub grid: Option<Vec<Piece>>,
+}
+
+impl Row {
+    /// Whether byte `b` of the source line is drawn on this row.
+    fn shows(&self, b: usize) -> bool {
+        match &self.grid {
+            None => (self.start..self.end).contains(&b),
+            Some(pieces) => pieces
+                .iter()
+                .any(|p| matches!(p, Piece::Text { bytes, .. } if bytes.contains(&b))),
+        }
+    }
+}
+
+/// Index of the display row showing byte `byte` of source line `line`.
+pub fn find_row(rows: &[Row], line: usize, byte: usize) -> usize {
+    let first = rows.partition_point(|r| r.line < line);
+    let on_line = &rows[first..rows.partition_point(|r| r.line <= line)];
+    if on_line.first().is_some_and(|r| r.grid.is_some()) {
+        // Table cells wrap independently, so the line's bytes aren't in row order
+        return first + on_line.iter().position(|r| r.shows(byte)).unwrap_or(0);
+    }
+    rows.partition_point(|r| (r.line, r.start) <= (line, byte))
+        .saturating_sub(1)
 }
 
 /// How a byte of the source should be drawn.
@@ -192,17 +222,38 @@ impl Doc {
         out
     }
 
-    /// Soft-wrap every line to `width` display columns.
+    /// Lay out display rows `width` columns wide: tables as grids, every
+    /// other line soft-wrapped.
     pub fn wrap(&self, width: usize) -> Vec<Row> {
+        let width = width.max(1);
         let mut rows = Vec::with_capacity(self.lines.len());
-        for (i, line) in self.lines.iter().enumerate() {
-            wrap_line(line, width.max(1), |start, end| {
-                rows.push(Row {
-                    line: i,
-                    start,
-                    end,
-                })
-            });
+        let mut i = 0;
+        while i < self.lines.len() {
+            let table_lines = (i..self.lines.len())
+                .take_while(|&j| !self.code[j] && table::is_table_line(&self.lines[j]))
+                .count();
+            let block = i..i + table_lines.max(1);
+            let grid = if table_lines > 0 {
+                table::layout(&self.lines, block.clone(), width)
+            } else {
+                None
+            };
+            i = block.end;
+            match grid {
+                Some(grid) => rows.extend(grid),
+                None => {
+                    for line in block {
+                        wrap_line(&self.lines[line], width, |start, end| {
+                            rows.push(Row {
+                                line,
+                                start,
+                                end,
+                                grid: None,
+                            })
+                        });
+                    }
+                }
+            }
         }
         rows
     }
@@ -422,7 +473,7 @@ fn matching_open(b: &[u8]) -> Option<usize> {
 }
 
 /// Word-wrap one line, calling `emit(start, end)` with byte ranges per row.
-fn wrap_line(line: &str, width: usize, mut emit: impl FnMut(usize, usize)) {
+pub(super) fn wrap_line(line: &str, width: usize, mut emit: impl FnMut(usize, usize)) {
     let mut start = 0;
     let mut col = 0;
     let mut last_space: Option<usize> = None;
@@ -557,6 +608,42 @@ mod tests {
         let rows = d.wrap(4);
         assert_eq!(rows.len(), 4);
         assert_eq!(&d.lines[0][rows[0].start..rows[0].end], "日本");
+    }
+
+    #[test]
+    fn lays_out_tables_without_changing_markdown() {
+        let md = "intro\n| a | b |\n|---|---|\n| [x][0] | 2 |\nend";
+        let d = doc(md, 1);
+        let rows = d.wrap(40);
+        let grid: Vec<_> = rows.iter().map(|r| r.grid.is_some()).collect();
+        assert_eq!(grid, [false, true, true, true, true, true, false]);
+        assert_eq!(d.lines, md.lines().collect::<Vec<_>>());
+        assert_eq!(
+            d.markdown_for(0..d.lines.len()),
+            format!("{md}\n\n[0]: https://x.test/0")
+        );
+        // Fenced tables, and tables too wide for the screen, stay markdown
+        let fenced = doc("```\n| a |\n|---|\n```", 0);
+        assert!(fenced.wrap(40).iter().all(|r| r.grid.is_none()));
+        let wide = doc("| a | b | c |\n|---|---|---|\n| one | two | three |", 0);
+        assert!(wide.wrap(19).iter().all(|r| r.grid.is_none()));
+    }
+
+    #[test]
+    fn finds_rows_of_table_cells() {
+        let d = doc(
+            "| k | alpha beta [gamma][0] |\n|---|---|\n| k2 | v |\nafter",
+            1,
+        );
+        let rows = d.wrap(16);
+        let line = &d.lines[0];
+        // The second cell wraps over four rows below the top border
+        assert_eq!(find_row(&rows, 0, line.find('k').unwrap()), 1);
+        assert_eq!(find_row(&rows, 0, line.find("beta").unwrap()), 2);
+        assert_eq!(find_row(&rows, 0, d.refs[0].span.start), 3);
+        assert_eq!(find_row(&rows, 1, 0), 5);
+        assert_eq!(find_row(&rows, 2, 0), 6);
+        assert_eq!(find_row(&rows, 3, 0), 8);
     }
 
     #[test]
