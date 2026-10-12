@@ -2,6 +2,7 @@
 //! markdown source lines, numbered link references, headings/sections,
 //! soft-wrapped display rows and per-byte styling.
 
+use std::borrow::Cow;
 use std::fmt::Write as _;
 use std::ops::Range;
 
@@ -46,6 +47,17 @@ pub struct Row {
 }
 
 impl Row {
+    /// What this row draws: its grid pieces, or its `start..end` slice as text.
+    pub fn pieces(&self) -> Cow<'_, [Piece]> {
+        match &self.grid {
+            Some(pieces) => Cow::Borrowed(pieces),
+            None => Cow::Owned(vec![Piece::Text {
+                bytes: self.start..self.end,
+                strong: false,
+            }]),
+        }
+    }
+
     /// Whether byte `b` of the source line is drawn on this row.
     fn shows(&self, b: usize) -> bool {
         match &self.grid {
@@ -54,6 +66,31 @@ impl Row {
                 .iter()
                 .any(|p| matches!(p, Piece::Text { bytes, .. } if bytes.contains(&b))),
         }
+    }
+
+    /// Byte of `line` (this row's source line) drawn at display column `col`;
+    /// `None` over table borders and past the end of the row.
+    pub fn byte_at(&self, line: &str, col: usize) -> Option<usize> {
+        let mut x = 0;
+        for piece in self.pieces().iter() {
+            match piece {
+                Piece::Border(s) => {
+                    x += s.width();
+                    if col < x {
+                        return None;
+                    }
+                }
+                Piece::Text { bytes, .. } => {
+                    for (i, ch) in line[bytes.clone()].char_indices() {
+                        x += ch.width().unwrap_or(0);
+                        if col < x {
+                            return Some(bytes.start + i);
+                        }
+                    }
+                }
+            }
+        }
+        None
     }
 }
 
@@ -149,6 +186,16 @@ impl Doc {
         let start = self.refs.partition_point(|r| r.line < line);
         let end = self.refs.partition_point(|r| r.line <= line);
         &self.refs[start..end]
+    }
+
+    /// The link reference (index into `refs`) covering byte `byte` of `line`.
+    pub fn ref_at(&self, line: usize, byte: usize) -> Option<usize> {
+        let start = self.refs.partition_point(|r| r.line < line);
+        self.refs[start..]
+            .iter()
+            .take_while(|r| r.line == line)
+            .position(|r| r.span.contains(&byte))
+            .map(|k| start + k)
     }
 
     /// Lines of the section opened by heading `h`: up to the next heading of
@@ -644,6 +691,44 @@ mod tests {
         assert_eq!(find_row(&rows, 1, 0), 5);
         assert_eq!(find_row(&rows, 2, 0), 6);
         assert_eq!(find_row(&rows, 3, 0), 8);
+    }
+
+    #[test]
+    fn maps_columns_to_links() {
+        let d = doc("see [Moon][0] 日本 [x][1]", 2);
+        let rows = d.wrap(80);
+        let line = &d.lines[0];
+        let at = |col| rows[0].byte_at(line, col).and_then(|b| d.ref_at(0, b));
+        assert_eq!(at(0), None);
+        assert_eq!(at(4), Some(0));
+        assert_eq!(at(12), Some(0));
+        assert_eq!(at(13), None);
+        // Wide characters take two columns each: "日本" spans 14..18
+        assert_eq!(at(18), None);
+        assert_eq!(at(19), Some(1));
+        assert_eq!(rows[0].byte_at(line, 80), None);
+    }
+
+    #[test]
+    fn maps_grid_columns_past_borders() {
+        let d = doc("| k | [v][0] |\n|---|---|", 1);
+        let rows = d.wrap(40);
+        let row = rows
+            .iter()
+            .find(|r| r.line == 0 && r.start < r.end)
+            .unwrap();
+        let line = &d.lines[0];
+        let drawn: String = row
+            .pieces()
+            .iter()
+            .map(|p| match p {
+                Piece::Border(s) => s.as_str(),
+                Piece::Text { bytes, .. } => &line[bytes.clone()],
+            })
+            .collect();
+        let col = drawn[..drawn.find("[v]").unwrap()].width();
+        assert_eq!(row.byte_at(line, 0), None);
+        assert_eq!(row.byte_at(line, col).and_then(|b| d.ref_at(0, b)), Some(0));
     }
 
     #[test]

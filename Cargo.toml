@@ -1,6 +1,6 @@
 [package]
 name = "browser39"
-version = "1.9.0"
+version = "2.0.0"
 edition = "2024"
 description = "Headless web browser for AI agents"
 authors = ["Alejandro Quintanar"]
@@ -76,6 +76,9 @@ aes-gcm = "0.10"
 base64 = "0.22"
 crossterm = "0.29"
 unicode-width = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+clipboard-win = "5.4"
 
 [dev-dependencies]
 tempfile = "3"

@@ -1,6 +1,6 @@
 {
   "name": "browser39",
-  "version": "1.9.0",
+  "version": "2.0.0",
   "description": "OpenClaw native plugin for browser39 — headless web browser for AI agents",
   "type": "module",
   "openclaw": {

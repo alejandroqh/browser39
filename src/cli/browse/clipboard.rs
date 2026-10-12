@@ -1,5 +1,6 @@
-//! Copy text to the system clipboard: native tools first, then the OSC 52
-//! terminal escape, which also works over SSH in terminals that support it.
+//! Copy text to the system clipboard: the native clipboard first (Windows
+//! API, pbcopy, wl-copy, xclip/xsel), then the OSC 52 terminal escape, which
+//! also works over SSH in terminals that support it.
 
 use std::env;
 use std::io::{self, Write};
@@ -10,6 +11,10 @@ use base64::engine::general_purpose::STANDARD;
 
 /// Copy `text`, returning the name of the mechanism that accepted it.
 pub fn copy(text: &str) -> io::Result<&'static str> {
+    #[cfg(windows)]
+    if clipboard_win::set_clipboard_string(text).is_ok() {
+        return Ok("Windows clipboard");
+    }
     for (cmd, args) in native_tools() {
         if pipe_to(cmd, args, text).is_ok() {
             return Ok(cmd);
@@ -26,7 +31,7 @@ fn native_tools() -> Vec<(&'static str, &'static [&'static str])> {
         return vec![("pbcopy", &[])];
     }
     if cfg!(windows) {
-        // clip.exe mangles UTF-8; rely on OSC 52 instead
+        // Handled by the clipboard API above (clip.exe would mangle UTF-8)
         return vec![];
     }
     let mut tools: Vec<(&'static str, &'static [&'static str])> = Vec::new();

@@ -1,11 +1,18 @@
 # Changelog
 
-## [Unreleased]
+## [2.0.0] - 2026-10-12
 
 ### Added
 
-- **`browser39 browse`** — an elinks-style terminal viewer for reading pages as markdown. Opens in reader mode (main content), with numbered links you follow by `Tab`/`Enter` or by number, back/forward history, find (`/`), a table of contents (`t`), and copying the current section (`y`), whole page (`Y`) or a URL (`c`) to the clipboard (pbcopy, wl-copy, xclip/xsel, or OSC 52 over SSH). `--section` opens at (or prints only) a section, `--full` shows the whole page, and output is plain markdown when piped or with `--print`. Copied/printed markdown ends with `[n]: url` reference definitions so links survive pasting.
+- **`browser39 browse`** — an elinks-style terminal viewer for reading pages as markdown. Opens in reader mode (main content), with numbered links you follow by `Tab`/`Enter` or by number, back/forward history, find (`/`), a table of contents (`t`), and copying the current section (`y`), whole page (`Y`) or a URL (`c`) to the clipboard (pbcopy on macOS, the Windows clipboard API, wl-copy/xclip/xsel on Linux, or OSC 52 over SSH). `--section` opens at (or prints only) a section, `--full` shows the whole page, and output is plain markdown when piped or with `--print`. Copied/printed markdown ends with `[n]: url` reference definitions so links survive pasting.
+- Mouse support in `browse`: click a link to follow it, hover to highlight it and see its URL, scroll with the wheel, and click in the contents list to jump; right- or middle-click copies the section under the pointer (or a contents entry's section). `m` toggles mouse capture so the terminal's own text selection works.
+- Tables in `browse` are drawn as aligned grids sized to the terminal width, with cells wrapping inside their columns; copies and piped output keep the original markdown.
+- Copying in `browse` briefly highlights what was copied: the section's rows (`y`, also from the contents list), the whole screen (`Y`), the link (`c`), or the title bar for the page URL.
 - `BrowserService::render_current` re-renders the current page with different options without refetching.
+
+### Changed
+
+- **Breaking (library):** `FetchOptions` has two new public fields, `keep_repeated_links` and `main_content`, used by the viewer. They default to `false` and are not part of the JSONL or MCP protocol, but code that builds `FetchOptions` with a struct literal must add them or use `..Default::default()`.
 
 ### Fixed
 

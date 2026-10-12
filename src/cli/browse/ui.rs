@@ -2,12 +2,17 @@
 
 use std::collections::HashMap;
 use std::io::{self, Write};
+use std::iter;
 use std::mem;
 use std::ops::Range;
+use std::time::Duration;
 
 use anyhow::Result;
 use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{
+    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
+    KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+};
 use crossterm::style::{Attribute, Color, ContentStyle, PrintStyledContent, StyledContent};
 use crossterm::terminal::{
     self, BeginSynchronizedUpdate, Clear, ClearType, EndSynchronizedUpdate, EnterAlternateScreen,
@@ -20,6 +25,12 @@ use super::Browser;
 use super::clipboard;
 use super::doc::{Doc, Look, Row, find_row};
 use super::table::Piece;
+
+/// Rows scrolled per mouse wheel step.
+const WHEEL_ROWS: isize = 3;
+
+/// How long copied text stays highlighted.
+const FLASH: Duration = Duration::from_millis(200);
 
 const HELP: &[(&str, &str)] = &[
     ("j k ↓ ↑", "scroll one line"),
@@ -39,6 +50,9 @@ const HELP: &[(&str, &str)] = &[
     ("Y", "copy whole page as markdown"),
     ("c", "copy link URL (or page URL)"),
     ("r", "toggle reader / full page"),
+    ("click / wheel", "follow link / scroll"),
+    ("right/middle-click", "copy the section under the pointer"),
+    ("m", "toggle mouse (off: select text in the terminal)"),
     ("Esc", "clear selection and search"),
     ("q Ctrl-C", "quit"),
 ];
@@ -61,7 +75,16 @@ enum Overlay {
     None,
     Hit,
     CurrentHit,
+    Hover,
     Selected,
+    Flash,
+}
+
+/// What a copy just put on the clipboard, highlighted briefly to confirm it.
+enum Flash {
+    Lines(Range<usize>),
+    Link(usize),
+    PageUrl,
 }
 
 /// Scroll position and link selection remembered per history entry.
@@ -81,17 +104,29 @@ pub(super) async fn run(browser: Browser<'_>, doc: Doc, section: Option<&str>) -
             None => ui.message = Some(format!("No section matching {name:?}")),
         }
     }
+    let mut redraw = true;
     loop {
-        ui.draw()?;
-        match event::read()? {
+        if redraw {
+            ui.draw()?;
+            if ui.flash.take().is_some() {
+                tokio::time::sleep(FLASH).await;
+                ui.draw()?;
+            }
+        }
+        redraw = match event::read()? {
             Event::Key(key) if key.kind != KeyEventKind::Release => {
                 if !ui.on_key(key).await? {
                     return Ok(());
                 }
+                true
             }
-            Event::Resize(w, h) => ui.resize(w, h),
-            _ => {}
-        }
+            Event::Mouse(mouse) => ui.on_mouse(mouse).await?,
+            Event::Resize(w, h) => {
+                ui.resize(w, h);
+                true
+            }
+            _ => false,
+        };
     }
 }
 
@@ -114,6 +149,12 @@ struct Ui<'a> {
     mode: Mode,
     message: Option<String>,
     views: HashMap<usize, ViewState>,
+    /// Whether mouse events are captured (off lets the terminal select text).
+    mouse: bool,
+    /// Last mouse position (column, row); cleared on key presses so the
+    /// keyboard selection isn't shadowed by a stale hover.
+    pointer: Option<(u16, u16)>,
+    flash: Option<Flash>,
 }
 
 impl<'a> Ui<'a> {
@@ -133,6 +174,9 @@ impl<'a> Ui<'a> {
             mode: Mode::Normal,
             message: None,
             views: HashMap::new(),
+            mouse: true,
+            pointer: None,
+            flash: None,
         };
         ui.resize(w, h);
         ui
@@ -173,6 +217,29 @@ impl<'a> Ui<'a> {
 
     fn is_visible(&self, row: usize) -> bool {
         row >= self.top && row < self.top + self.content_height()
+    }
+
+    /// The display row drawn at screen row `y`.
+    fn row_at(&self, y: u16) -> Option<&Row> {
+        let y = (y as usize)
+            .checked_sub(1)
+            .filter(|&y| y < self.content_height())?;
+        self.rows.get(self.top + y)
+    }
+
+    /// The link reference drawn at screen position (`col`, `y`), if any.
+    fn ref_at(&self, col: u16, y: u16) -> Option<usize> {
+        let row = self.row_at(y)?;
+        let byte = row.byte_at(&self.doc.lines[row.line], col as usize)?;
+        self.doc.ref_at(row.line, byte)
+    }
+
+    /// The link under the mouse pointer.
+    fn hovered(&self) -> Option<usize> {
+        let (col, y) = self.pointer?;
+        matches!(self.mode, Mode::Normal)
+            .then(|| self.ref_at(col, y))
+            .flatten()
     }
 
     /// Scroll so `row` is on screen, with some context above it.
@@ -398,15 +465,23 @@ impl<'a> Ui<'a> {
         self.message = Some(format!("/{q}  match {} of {n}", k + 1));
     }
 
-    fn copy(&mut self, what: &str, text: &str) {
+    fn copy(&mut self, what: &str, text: &str, flash: Flash) {
         self.message = Some(match clipboard::copy(text) {
-            Ok(via) => format!(
-                "Copied {what} — {} lines, {} (via {via})",
-                text.lines().count(),
-                human_size(text.len())
-            ),
+            Ok(via) => {
+                self.flash = Some(flash);
+                let lines = text.lines().count();
+                let s = if lines == 1 { "" } else { "s" };
+                format!(
+                    "Copied {what} — {lines} line{s}, {} (via {via})",
+                    human_size(text.len())
+                )
+            }
             Err(e) => format!("Copy failed: {e}"),
         });
+    }
+
+    fn flashes_line(&self, line: usize) -> bool {
+        matches!(&self.flash, Some(Flash::Lines(r)) if r.contains(&line))
     }
 
     fn copy_section(&mut self, h: Option<usize>) {
@@ -420,8 +495,8 @@ impl<'a> Ui<'a> {
                 _ => ("page".into(), 0..self.doc.lines.len()),
             },
         };
-        let text = self.doc.markdown_for(lines);
-        self.copy(&what, &text);
+        let text = self.doc.markdown_for(lines.clone());
+        self.copy(&what, &text, Flash::Lines(lines));
     }
 
     // --- Keys ---
@@ -432,6 +507,7 @@ impl<'a> Ui<'a> {
         if ctrl && key.code == KeyCode::Char('c') {
             return Ok(false);
         }
+        self.pointer = None;
         match &mut self.mode {
             Mode::Normal => return self.on_normal_key(key, ctrl).await,
             Mode::Help => self.mode = Mode::Normal,
@@ -558,20 +634,23 @@ impl<'a> Ui<'a> {
             }
             KeyCode::Char('y') => self.copy_section(self.doc.heading_at(self.anchor_line())),
             KeyCode::Char('Y') => {
-                let text = self.doc.markdown_for(0..self.doc.lines.len());
-                self.copy("page", &text);
+                let all = 0..self.doc.lines.len();
+                let text = self.doc.markdown_for(all.clone());
+                self.copy("page", &text, Flash::Lines(all));
             }
             KeyCode::Char('c') => {
-                let (what, url) = match self.selected {
+                let (what, url, flash) = match self.selected {
                     Some(i) => (
                         "link URL",
                         self.doc.links[self.doc.refs[i].link].href.clone(),
+                        Flash::Link(i),
                     ),
-                    None => ("page URL", self.doc.url.clone()),
+                    None => ("page URL", self.doc.url.clone(), Flash::PageUrl),
                 };
-                self.copy(what, &url);
+                self.copy(what, &url, flash);
             }
             KeyCode::Char('r') => self.toggle_reader(),
+            KeyCode::Char('m') => self.toggle_mouse()?,
             KeyCode::Char('?') => self.mode = Mode::Help,
             _ => {}
         }
@@ -579,6 +658,7 @@ impl<'a> Ui<'a> {
     }
 
     fn on_toc_key(&mut self, key: KeyEvent, sel: usize) {
+        self.message = None;
         let last = self.doc.headings.len().saturating_sub(1);
         let page = self.content_height().saturating_sub(1).max(1);
         let sel = match key.code {
@@ -606,6 +686,97 @@ impl<'a> Ui<'a> {
         self.mode = Mode::Toc { sel };
     }
 
+    // --- Mouse ---
+
+    fn toggle_mouse(&mut self) -> io::Result<()> {
+        self.mouse = !self.mouse;
+        if self.mouse {
+            execute!(io::stdout(), EnableMouseCapture)?;
+            self.message = Some("Mouse on: click links, wheel scrolls".into());
+        } else {
+            execute!(io::stdout(), DisableMouseCapture)?;
+            self.message = Some("Mouse off: drag to select text, m to turn back on".into());
+        }
+        Ok(())
+    }
+
+    /// Handle a mouse event. Returns whether the screen needs redrawing.
+    async fn on_mouse(&mut self, mouse: MouseEvent) -> Result<bool> {
+        let (col, y) = (mouse.column, mouse.row);
+        let wheel = match mouse.kind {
+            MouseEventKind::ScrollDown => 1,
+            MouseEventKind::ScrollUp => -1,
+            _ => 0,
+        };
+        let click = mouse.kind == MouseEventKind::Down(MouseButton::Left);
+        // Middle click too: some terminals keep right click for their own menu
+        let copy_click = matches!(
+            mouse.kind,
+            MouseEventKind::Down(MouseButton::Right | MouseButton::Middle)
+        );
+        match self.mode {
+            Mode::Normal => {
+                let before = self.hovered();
+                self.pointer = Some((col, y));
+                if wheel != 0 {
+                    self.message = None;
+                    self.scroll_by(wheel * WHEEL_ROWS);
+                    return Ok(true);
+                }
+                if copy_click && let Some(row) = self.row_at(y) {
+                    self.copy_section(self.doc.heading_at(row.line));
+                    return Ok(true);
+                }
+                let link = self.hovered();
+                if click && let Some(i) = link {
+                    self.message = None;
+                    self.number.clear();
+                    self.selected = Some(i);
+                    self.follow(self.doc.refs[i].link).await?;
+                    return Ok(true);
+                }
+                if link == before {
+                    return Ok(false);
+                }
+                if link.is_some() {
+                    // Show the hovered URL rather than an old message
+                    self.message = None;
+                }
+                Ok(true)
+            }
+            Mode::Toc { sel } => {
+                let last = self.doc.headings.len().saturating_sub(1);
+                if wheel != 0 {
+                    let sel = sel.saturating_add_signed(wheel).min(last);
+                    self.mode = Mode::Toc { sel };
+                    return Ok(true);
+                }
+                let y = y as usize;
+                let entry = (1..=self.content_height())
+                    .contains(&y)
+                    .then(|| self.toc_top(sel) + y - 1)
+                    .filter(|&h| h <= last);
+                match entry {
+                    Some(h) if click => {
+                        self.mode = Mode::Normal;
+                        self.jump_to_heading(h);
+                        Ok(true)
+                    }
+                    Some(h) if copy_click => {
+                        self.copy_section(Some(h));
+                        Ok(true)
+                    }
+                    _ => Ok(false),
+                }
+            }
+            Mode::Help if click => {
+                self.mode = Mode::Normal;
+                Ok(true)
+            }
+            Mode::Help | Mode::Prompt { .. } => Ok(false),
+        }
+    }
+
     // --- Drawing ---
 
     fn draw(&self) -> io::Result<()> {
@@ -614,8 +785,13 @@ impl<'a> Ui<'a> {
 
         let title = self.doc.title.as_deref().unwrap_or("");
         let bar = format!("{title}  {}", self.doc.url);
+        let style = if matches!(self.flash, Some(Flash::PageUrl)) {
+            flash_style()
+        } else {
+            reverse()
+        };
         queue!(buf, MoveTo(0, 0))?;
-        print_bar(&mut buf, &bar, "", self.width + 1)?;
+        print_bar(&mut buf, style, &bar, "", self.width + 1)?;
 
         match &self.mode {
             Mode::Toc { sel } => self.draw_toc(&mut buf, *sel)?,
@@ -650,12 +826,8 @@ impl<'a> Ui<'a> {
                 }
                 let (_, looks, overlays) = cached.as_ref().expect("cached above");
                 let line = &self.doc.lines[row.line];
-                let prose = [Piece::Text {
-                    bytes: row.start..row.end,
-                    strong: false,
-                }];
                 let mut chars = Vec::new();
-                for piece in row.grid.as_deref().unwrap_or(&prose) {
+                for piece in row.pieces().iter() {
                     match piece {
                         Piece::Border(s) => chars.extend(s.chars().map(|c| (c, dim()))),
                         Piece::Text { bytes, strong } => {
@@ -669,6 +841,12 @@ impl<'a> Ui<'a> {
                             }
                         }
                     }
+                }
+                if self.flashes_line(row.line) {
+                    let used: usize = chars.iter().map(|(c, _)| c.width().unwrap_or(0)).sum();
+                    let pad = self.width.saturating_sub(used);
+                    chars.extend(iter::repeat_n((' ', dim()), pad));
+                    chars.iter_mut().for_each(|c| c.1 = flash_style());
                 }
                 for run in chars.chunk_by(|a, b| a.1 == b.1) {
                     let text: String = run.iter().map(|&(c, _)| c).collect();
@@ -696,28 +874,46 @@ impl<'a> Ui<'a> {
             };
             ov[r.clone()].fill(kind);
         }
-        if let Some(i) = self.selected
-            && self.doc.refs[i].line == line
-        {
-            ov[self.doc.refs[i].span.clone()].fill(Overlay::Selected);
+        let flashed = match self.flash {
+            Some(Flash::Link(i)) => Some(i),
+            _ => None,
+        };
+        for (i, kind) in [
+            (self.hovered(), Overlay::Hover),
+            (self.selected, Overlay::Selected),
+            (flashed, Overlay::Flash),
+        ] {
+            if let Some(i) = i
+                && self.doc.refs[i].line == line
+            {
+                ov[self.doc.refs[i].span.clone()].fill(kind);
+            }
         }
         ov
+    }
+
+    /// First heading shown in the contents list: keeps `sel` centred.
+    fn toc_top(&self, sel: usize) -> usize {
+        let ch = self.content_height();
+        sel.saturating_sub(ch.saturating_sub(1) / 2)
+            .min(self.doc.headings.len().saturating_sub(ch))
     }
 
     fn draw_toc(&self, buf: &mut Vec<u8>, sel: usize) -> io::Result<()> {
         let headings = &self.doc.headings;
         let ch = self.content_height();
         let min_level = headings.iter().map(|h| h.level).min().unwrap_or(1);
-        let top = sel
-            .saturating_sub(ch.saturating_sub(1) / 2)
-            .min(headings.len().saturating_sub(ch));
+        let top = self.toc_top(sel);
         for y in 0..ch {
             queue!(buf, MoveTo(0, (y + 1) as u16))?;
             if let Some(h) = headings.get(top + y) {
                 let indent = "  ".repeat(h.level - min_level);
-                let text = fit(&format!(" {indent}{}", h.text), self.width);
+                let mut text = fit(&format!(" {indent}{}", h.text), self.width);
                 let mut style = heading_style(h.level as u8);
-                if top + y == sel {
+                if self.flashes_line(h.line) {
+                    style = flash_style();
+                    text += &" ".repeat(self.width.saturating_sub(text.width()));
+                } else if top + y == sel {
                     style.attributes.set(Attribute::Reverse);
                 }
                 queue!(buf, PrintStyledContent(StyledContent::new(style, text)))?;
@@ -729,7 +925,7 @@ impl<'a> Ui<'a> {
 
     fn draw_help(&self, buf: &mut Vec<u8>) -> io::Result<()> {
         let mut lines = vec![
-            String::from(" Keys — press any key to return"),
+            String::from(" Keys — press any key or click to return"),
             String::new(),
         ];
         lines.extend(HELP.iter().map(|(k, d)| format!(" {k:>18}   {d}")));
@@ -764,28 +960,27 @@ impl<'a> Ui<'a> {
                 let room = full.saturating_sub(label.len() + 2);
                 let shown = tail(input, room);
                 let text = format!("{label}{shown}");
-                print_bar(buf, &text, "", full)?;
+                print_bar(buf, reverse(), &text, "", full)?;
                 Ok(Some((1 + text.width()).min(full.saturating_sub(1)) as u16))
             }
             Mode::Toc { .. } => {
-                print_bar(
-                    buf,
-                    "Contents — Enter jump · y copy section · Esc close",
-                    "",
-                    full,
-                )?;
+                let left = self
+                    .message
+                    .as_deref()
+                    .unwrap_or("Contents — Enter/click jump · y/right-click copy · Esc close");
+                print_bar(buf, reverse(), left, "", full)?;
                 Ok(None)
             }
             _ => {
                 let left = if let Some(m) = &self.message {
                     m.clone()
-                } else if let Some(i) = self.selected {
+                } else if let Some(i) = self.hovered().or(self.selected) {
                     let n = self.doc.refs[i].link;
                     format!("[{n}] {}", self.doc.links[n].href)
                 } else {
                     "? help · Tab links · t contents · y copy section · o open · q quit".into()
                 };
-                print_bar(buf, &left, &self.position_label(), full)?;
+                print_bar(buf, reverse(), &left, &self.position_label(), full)?;
                 Ok(None)
             }
         }
@@ -856,6 +1051,10 @@ fn style_for(look: Look, overlay: Overlay) -> ContentStyle {
     }
     match overlay {
         Overlay::None => {}
+        Overlay::Hover => {
+            s.background_color = Some(Color::DarkBlue);
+            s.foreground_color = Some(Color::White);
+        }
         Overlay::Selected => {
             s.attributes.set(Attribute::Reverse);
             s.attributes.set(Attribute::Bold);
@@ -869,6 +1068,7 @@ fn style_for(look: Look, overlay: Overlay) -> ContentStyle {
             s.foreground_color = Some(Color::Black);
             s.attributes.set(Attribute::Bold);
         }
+        Overlay::Flash => s = flash_style(),
     }
     s
 }
@@ -890,16 +1090,32 @@ fn dim() -> ContentStyle {
     s
 }
 
-/// Print `left` and right-aligned `right` across `width` columns.
-/// Print a reverse-video bar across the full `width`: `left` after a one-space
-/// margin, `right` right-aligned.
-fn print_bar(buf: &mut Vec<u8>, left: &str, right: &str, width: usize) -> io::Result<()> {
+fn reverse() -> ContentStyle {
+    let mut s = ContentStyle::new();
+    s.attributes.set(Attribute::Reverse);
+    s
+}
+
+fn flash_style() -> ContentStyle {
+    let mut s = ContentStyle::new();
+    s.background_color = Some(Color::Green);
+    s.foreground_color = Some(Color::Black);
+    s
+}
+
+/// Print a bar (reverse video, normally) across the full `width`: `left`
+/// after a one-space margin, `right` right-aligned.
+fn print_bar(
+    buf: &mut Vec<u8>,
+    style: ContentStyle,
+    left: &str,
+    right: &str,
+    width: usize,
+) -> io::Result<()> {
     let right = fit(right, width / 2);
     let right_w = right.width();
     let left = fit(left, width.saturating_sub(right_w + 2));
     let gap = width.saturating_sub(1 + left.width() + right_w);
-    let mut style = ContentStyle::new();
-    style.attributes.set(Attribute::Reverse);
     // Filling the last column is fine; a following clear would erase it.
     let line = format!(" {left}{}{right}", " ".repeat(gap));
     queue!(buf, PrintStyledContent(StyledContent::new(style, line)))
@@ -957,7 +1173,7 @@ impl TerminalGuard {
         }));
         let guard = Self;
         terminal::enable_raw_mode()?;
-        execute!(io::stdout(), EnterAlternateScreen, Hide)?;
+        execute!(io::stdout(), EnterAlternateScreen, Hide, EnableMouseCapture)?;
         Ok(guard)
     }
 }
@@ -969,6 +1185,11 @@ impl Drop for TerminalGuard {
 }
 
 fn restore_terminal() {
-    let _ = execute!(io::stdout(), Show, LeaveAlternateScreen);
+    let _ = execute!(
+        io::stdout(),
+        DisableMouseCapture,
+        Show,
+        LeaveAlternateScreen
+    );
     let _ = terminal::disable_raw_mode();
 }

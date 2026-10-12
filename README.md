@@ -118,7 +118,7 @@ browser39 browse en.wikipedia.org/wiki/Artemis_II -s "lunar flyby"  # open at a 
 browser39 browse rust async traits                                  # not a URL: web search
 ```
 
-Scroll with `j`/`k`/space, follow links with `Tab` + `Enter` or by typing their number, go back with `h`. Press `t` for the table of contents, `y` to copy the current section as markdown, `Y` for the whole page, `/` to find, `o` to open a URL or search, `r` to toggle reader/full page, `?` for all keys. Copied markdown includes `[n]: url` definitions for its links, so it pastes as valid markdown.
+Scroll with `j`/`k`/space or the mouse wheel, follow links by clicking them, with `Tab` + `Enter`, or by typing their number, go back with `h`. Hovering a link shows its URL, and right- or middle-clicking copies the section under the pointer; press `m` to release the mouse so the terminal can select text. Press `t` for the table of contents, `y` to copy the current section as markdown, `Y` for the whole page, `/` to find, `o` to open a URL or search, `r` to toggle reader/full page, `?` for all keys. Copied markdown includes `[n]: url` definitions for its links, so it pastes as valid markdown.
 
 When stdout isn't a terminal it prints the markdown instead, so it pipes cleanly:
 
@@ -150,7 +150,7 @@ Embed browser39 directly in a Rust application — no subprocess, no IPC.
 
 ```toml
 [dependencies]
-browser39 = "1.9"
+browser39 = "2.0"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 ```
